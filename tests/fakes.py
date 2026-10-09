@@ -42,15 +42,29 @@ class FakeProvider(ModelProvider):
 
 
 class FakeTool(Tool):
-    def __init__(self, name: str, results: list[ToolResult] | None = None) -> None:
+    def __init__(
+        self,
+        name: str,
+        results: list[ToolResult] | None = None,
+        ignore_cancel: bool = False,
+        sleep_s: float = 0.0,
+    ) -> None:
         self.name = name
         self.description = f"fake tool {name}"
         self.input_schema = {"type": "object", "properties": {}}
         self.calls: list[dict] = []
+        self.ignore_cancel = ignore_cancel
+        self.sleep_s = sleep_s
         self._results = list(results or [ToolResult(ok=True)])
 
     def execute(self, arguments: dict, cancel: CancellationToken) -> ToolResult:
+        import time
+
         self.calls.append(dict(arguments))
+        if self.sleep_s:
+            time.sleep(self.sleep_s)
+        elif not self.ignore_cancel:
+            cancel.raise_if_cancelled()
         if self._results:
             return self._results.pop(0)
         return ToolResult(ok=True)

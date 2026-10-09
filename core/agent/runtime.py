@@ -146,6 +146,8 @@ class AgentRuntime:
                         {"error_code": exc.error_code, "message": exc.message},
                     )
                     return
+                # abandoned in-flight responses are never delivered
+                task.token.raise_if_cancelled()
                 if not response.tool_calls:
                     text = response.text or ""
                     self._session.add_message(sid, "assistant", text)
