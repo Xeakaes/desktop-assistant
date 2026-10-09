@@ -35,4 +35,38 @@ def create_provider(
             timeout_s=timeout_s,
             session=session,
         )
+    if ptype == "nvidia":
+        api_key = secrets.get("nvidia_api_key")
+        if not api_key:
+            raise ProviderError(
+                "nvidia provider requires secrets.nvidia_api_key",
+                error_code="missing_api_key",
+            )
+        return OpenAICompatProvider(
+            base_url=provider_cfg.get("url", "https://integrate.api.nvidia.com/v1"),
+            api_key=api_key,
+            model=provider_cfg.get("model"),
+            timeout_s=timeout_s,
+            session=session,
+        )
+    if ptype == "nararouter":
+        api_key = secrets.get("nararouter_api_key")
+        if not api_key:
+            raise ProviderError(
+                "nararouter provider requires secrets.nararouter_api_key",
+                error_code="missing_api_key",
+            )
+        url = provider_cfg.get("url") or secrets.get(
+            "openai_compatible_url_for_nararouter", ""
+        )
+        url = url.rstrip("/")
+        if url.endswith("/chat/completions"):
+            url = url[: -len("/chat/completions")]
+        return OpenAICompatProvider(
+            base_url=url,
+            api_key=api_key,
+            model=provider_cfg.get("model"),
+            timeout_s=timeout_s,
+            session=session,
+        )
     raise ProviderError(f"unknown provider type: {ptype}", error_code="unknown_provider")

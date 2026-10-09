@@ -1,0 +1,56 @@
+import pytest
+from core.providers import create_provider
+from core.providers.base import ProviderError
+from core.providers.ollama import OllamaProvider
+from core.providers.openai_compat import OpenAICompatProvider
+
+
+def test_create_ollama_provider():
+    p = create_provider(
+        {"provider": {"type": "ollama", "url": "http://127.0.0.1:11434", "model": "m"}},
+        {},
+    )
+    assert isinstance(p, OllamaProvider) and p.model == "m"
+
+
+def test_create_openai_compat_requires_api_key():
+    with pytest.raises(ProviderError) as ei:
+        create_provider({"provider": {"type": "openai_compat", "model": "m"}}, {})
+    assert ei.value.error_code == "missing_api_key"
+
+
+def test_create_openai_compat_uses_api_key_secret():
+    p = create_provider(
+        {"provider": {"type": "openai_compat", "url": "http://x/v1", "model": "m"}},
+        {"api_key": "sk-test"},
+    )
+    assert isinstance(p, OpenAICompatProvider) and p.api_key == "sk-test"
+
+
+def test_create_nvidia_profile():
+    p = create_provider(
+        {"provider": {"type": "nvidia", "model": "meta/llama-3.1-8b-instruct"}},
+        {"nvidia_api_key": "nvapi-x"},
+    )
+    assert isinstance(p, OpenAICompatProvider)
+    assert p.api_key == "nvapi-x"
+    assert "integrate.api.nvidia.com" in p.base_url
+
+
+def test_create_nararouter_profile_strips_chat_completions():
+    p = create_provider(
+        {"provider": {"type": "nararouter", "model": "m"}},
+        {
+            "nararouter_api_key": "sk-nry-x",
+            "openai_compatible_url_for_nararouter": "https://router.example/v1/chat/completions",
+        },
+    )
+    assert isinstance(p, OpenAICompatProvider)
+    assert p.base_url == "https://router.example/v1"
+    assert p.api_key == "sk-nry-x"
+
+
+def test_create_unknown_type():
+    with pytest.raises(ProviderError) as ei:
+        create_provider({"provider": {"type": "nope"}}, {})
+    assert ei.value.error_code == "unknown_provider"
