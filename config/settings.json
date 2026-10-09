@@ -1,0 +1,20 @@
+{
+  "provider": {
+    "type": "ollama",
+    "url": "http://127.0.0.1:11434",
+    "model": "llama3.2"
+  },
+  "screen_control": {
+    "enabled": true,
+    "host": "127.0.0.1",
+    "port": 8745
+  },
+  "permissions": {
+    "*": "ask"
+  },
+  "agent": {
+    "max_tool_calls": 10,
+    "tool_timeout_s": 30,
+    "model_timeout_s": 60
+  }
+}
