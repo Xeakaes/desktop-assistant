@@ -324,7 +324,9 @@ class SettingsWindow(QWidget):
         except PackError:
             self._status.setText(i18n.t("settings.pack_bad_image"))
             return
-        avatars_root = Path(__file__).resolve().parent.parent / "assets" / "avatars"
+        from core.paths import assets_dir
+
+        avatars_root = assets_dir() / "avatars"
         out = avatars_root / name
         try:
             self.setCursor(Qt.CursorShape.WaitCursor)
@@ -353,7 +355,9 @@ class SettingsWindow(QWidget):
         event.ignore()
 
     def _list_avatars(self) -> list:
-        root = Path(__file__).resolve().parent.parent / "assets" / "avatars"
+        from core.paths import assets_dir
+
+        root = assets_dir() / "avatars"
         if not root.is_dir():
             return ["base"]
         return sorted(p.name for p in root.iterdir() if p.is_dir()) or ["base"]

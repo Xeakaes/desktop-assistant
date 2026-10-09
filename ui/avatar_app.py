@@ -27,7 +27,9 @@ from ui.settings import SettingsWindow
 from ui.theme import apply_theme
 
 SID = "m1"
-ASSETS = Path(__file__).resolve().parent.parent / "assets" / "avatars"
+from core.paths import assets_dir
+
+ASSETS = assets_dir() / "avatars"
 
 
 class _UiSignals(QObject):

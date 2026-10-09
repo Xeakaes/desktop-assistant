@@ -5,11 +5,11 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from core.bootstrap import DEFAULT_SECRETS, DEFAULT_SETTINGS
+from core.paths import config_dir
 
-CONFIG_DIR: Path = DEFAULT_SETTINGS.parent
-SETTINGS_PATH: Path = DEFAULT_SETTINGS
-SECRETS_PATH: Path = DEFAULT_SECRETS
+CONFIG_DIR: Path = config_dir()
+SETTINGS_PATH: Path = CONFIG_DIR / "settings.json"
+SECRETS_PATH: Path = CONFIG_DIR / "secrets.json"
 UI_JSON_PATH: Path = CONFIG_DIR / "ui.json"
 
 
