@@ -18,6 +18,7 @@ class ToolCall:
     id: str
     name: str
     arguments: dict
+    parse_error: str | None = None
 
 
 @dataclass

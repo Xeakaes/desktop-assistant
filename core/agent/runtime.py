@@ -32,10 +32,12 @@ def _json_safe(value):
     if isinstance(value, bytes):
         return {"__bytes_len__": len(value)}
     if isinstance(value, dict):
-        return {k: _json_safe(v) for k, v in value.items()}
-    if isinstance(value, (list, tuple)):
+        return {str(k): _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple, set)):
         return [_json_safe(v) for v in value]
-    return value
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    return repr(value)
 
 
 def _result_content(result: ToolResult) -> str:
@@ -51,6 +53,27 @@ def _result_content(result: ToolResult) -> str:
         },
         ensure_ascii=False,
     )
+
+
+class _LinkedToken(CancellationToken):
+    """Child token: cancelled when its own cancel() or the parent is cancelled."""
+
+    def __init__(self, parent: CancellationToken) -> None:
+        super().__init__()
+        self._parent = parent
+
+    @property
+    def cancelled(self) -> bool:
+        return super().cancelled or self._parent.cancelled
+
+    def raise_if_cancelled(self) -> None:
+        if self.cancelled:
+            raise TaskCancelled()
+
+    def wait(self, timeout: float) -> bool:
+        if self._parent.cancelled:
+            self.cancel()
+        return super().wait(timeout) or self._parent.wait(0)
 
 
 class _Task:
@@ -106,6 +129,12 @@ class AgentRuntime:
         finally:
             if self._active_task_id == task_id:
                 self._active_task_id = None
+            self._tasks.pop(task_id, None)
+
+    def close(self) -> None:
+        """Cancel active task, stop accepting tool work, free threads (spec §3.5)."""
+        self.cancel_active_task()
+        self._executor.shutdown(wait=False, cancel_futures=True)
 
     def start_task(self, session_id: str, user_text: str) -> str:
         task_id = self.begin_task(session_id, user_text)
@@ -173,19 +202,57 @@ class AgentRuntime:
                 self._session.add_message(
                     sid, "assistant", response.text, tool_calls=response.tool_calls
                 )
-                for call in response.tool_calls:
-                    task.token.raise_if_cancelled()
-                    tool_calls_used += 1
-                    if tool_calls_used > self._config.max_tool_calls:
+                for index, call in enumerate(response.tool_calls):
+                    if task.token.cancelled:
+                        self._close_tool_batch(
+                            task, response.tool_calls, index, "cancelled", "task cancelled"
+                        )
                         self._events.publish(
-                            "agent_error", sid, tid,
-                            {"error_code": "max_tool_calls"},
+                            "agent_cancelled", sid, tid, {"reason": "cancelled"}
                         )
                         return
-                    result = self._run_one_tool(task, call.id, call.name, call.arguments)
+                    tool_calls_used += 1
+                    if tool_calls_used > self._config.max_tool_calls:
+                        self._close_tool_batch(
+                            task, response.tool_calls, index,
+                            "max_tool_calls", "tool call limit reached",
+                        )
+                        self._events.publish(
+                            "agent_error", sid, tid,
+                            {
+                                "error_code": "max_tool_calls",
+                                "message": "tool call limit reached",
+                            },
+                        )
+                        return
+                    if call.parse_error:
+                        result = ToolResult(
+                            ok=False,
+                            error=f"malformed tool arguments: {call.parse_error}",
+                            error_code="invalid_arguments",
+                        )
+                    else:
+                        result = self._run_one_tool(
+                            task, call.id, call.name, call.arguments
+                        )
                     if task.token.cancelled:
-                        # late result discarded — never fed to the model
-                        self._events.publish("agent_cancelled", sid, tid, {"reason": "cancelled"})
+                        # late result discarded — never fed to the model;
+                        # write a synthetic result so history stays closed
+                        self._session.add_message(
+                            sid, "tool",
+                            _result_content(ToolResult(
+                                ok=False, error="cancelled during tool execution",
+                                error_code="cancelled",
+                            )),
+                            tool_call_id=call.id, name=call.name,
+                        )
+                        self._close_tool_batch(
+                            task, response.tool_calls, index + 1,
+                            "cancelled", "task cancelled",
+                        )
+                        self._events.publish(
+                            "agent_cancelled", sid, tid, {"reason": "cancelled"}
+                        )
                         return
                     self._session.add_message(
                         sid, "tool", _result_content(result),
@@ -193,6 +260,22 @@ class AgentRuntime:
                     )
         except TaskCancelled:
             self._events.publish("agent_cancelled", sid, tid, {"reason": "cancelled"})
+
+    def _close_tool_batch(
+        self,
+        task: _Task,
+        calls,
+        from_index: int,
+        error_code: str,
+        error: str,
+    ) -> None:
+        """Append synthetic tool results so every assistant tool_call has a reply."""
+        for call in calls[from_index:]:
+            self._session.add_message(
+                task.session_id, "tool",
+                _result_content(ToolResult(ok=False, error=error, error_code=error_code)),
+                tool_call_id=call.id, name=call.name,
+            )
 
     def _run_one_tool(self, task: _Task, call_id: str, name: str, arguments: dict) -> ToolResult:
         sid, tid = task.session_id, task.task_id
@@ -245,10 +328,12 @@ class AgentRuntime:
         self._events.publish(
             "tool_started", sid, tid, {"tool_name": name, "arguments": arguments}
         )
-        future = self._executor.submit(tool.execute, arguments, task.token)
+        tool_token = _LinkedToken(task.token)
+        future = self._executor.submit(tool.execute, arguments, tool_token)
         try:
             result = future.result(timeout=self._config.tool_timeout_s)
         except FuturesTimeout:
+            tool_token.cancel()  # let the tool observe cancellation
             future.cancel()
             result = ToolResult(
                 ok=False, error="tool timed out", error_code="timeout"

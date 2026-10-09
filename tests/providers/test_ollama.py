@@ -71,10 +71,31 @@ def test_ollama_parses_tool_call_embedded_in_content():
     }
     session = FakeSession(FakeResponse(payload))
     p = OllamaProvider("http://127.0.0.1:11434", "m", session=session)
-    r = p.complete(_msgs(), [], CancellationToken())
+    schemas = [{"name": "screenshot", "description": "d", "input_schema": {"type": "object"}}]
+    r = p.complete(_msgs(), schemas, CancellationToken())
     assert r.tool_calls[0].name == "screenshot"
     assert r.tool_calls[0].arguments == {}
     assert r.text is None
+
+
+def test_ollama_malformed_response_shape_maps_provider_error():
+    session = FakeSession(FakeResponse({"message": "not-an-object"}))
+    p = OllamaProvider("http://127.0.0.1:11434", "m", session=session)
+    with pytest.raises(ProviderError) as ei:
+        p.complete(_msgs(), [], CancellationToken())
+    assert ei.value.error_code == "provider_error"
+
+
+def test_ollama_native_invalid_json_sets_parse_error():
+    payload = {
+        "message": {"tool_calls": [{"function": {"name": "echo", "arguments": "{bad"}}]},
+        "done": True,
+    }
+    session = FakeSession(FakeResponse(payload))
+    p = OllamaProvider("http://127.0.0.1:11434", "m", session=session)
+    r = p.complete(_msgs(), [], CancellationToken())
+    assert r.tool_calls[0].parse_error is not None
+    assert r.tool_calls[0].arguments == {}
 
 
 def test_ollama_http_timeout_maps_error_code():

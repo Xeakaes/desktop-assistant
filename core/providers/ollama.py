@@ -112,28 +112,52 @@ class OllamaProvider(ModelProvider):
             raise ProviderError(str(exc), error_code="timeout") from exc
         except requests.RequestException as exc:
             raise ProviderError(str(exc), error_code="provider_error") from exc
-        message = payload.get("message") or {}
+        try:
+            payload = resp.json()
+            message = payload["message"]
+            if not isinstance(message, dict):
+                raise TypeError("message is not an object")
+        except (ValueError, KeyError, TypeError) as exc:
+            raise ProviderError(
+                f"malformed provider response: {exc}", error_code="provider_error"
+            ) from exc
         text = message.get("content")
         tool_calls: list[ToolCall] = []
+        known_names = {s.get("name") for s in schemas}
         for i, raw in enumerate(message.get("tool_calls") or []):
             fn = raw.get("function") or {}
+            name = fn.get("name", "")
+            raw_args = fn.get("arguments")
+            try:
+                arguments = _parse_arguments(raw_args)
+                parse_error = None
+            except ProviderError as exc:
+                arguments = {}
+                parse_error = exc.message
             tool_calls.append(
                 ToolCall(
                     id=f"ollama_{i}",
-                    name=fn.get("name", ""),
-                    arguments=_parse_arguments(fn.get("arguments")),
+                    name=name,
+                    arguments=arguments,
+                    parse_error=parse_error,
                 )
             )
-        if not tool_calls and text:
+        if not tool_calls and text and known_names:
             # Some models (e.g. qwen via Ollama) emit the tool call as a JSON
             # object in content instead of the native tool_calls field.
+            # Only accept it when the name matches a schema we offered —
+            # arbitrary JSON text must stay text (review finding I5).
             stripped = text.strip()
             if stripped.startswith("{") and stripped.endswith("}"):
                 try:
                     embedded = json.loads(stripped)
                 except json.JSONDecodeError:
                     embedded = None
-                if isinstance(embedded, dict) and "name" in embedded and "arguments" in embedded:
+                if (
+                    isinstance(embedded, dict)
+                    and embedded.get("name") in known_names
+                    and "arguments" in embedded
+                ):
                     tool_calls.append(
                         ToolCall(
                             id="ollama_0",

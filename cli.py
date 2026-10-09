@@ -60,7 +60,7 @@ def main() -> int:
             runtime.run_task(task_id)
         finally:
             signal.signal(signal.SIGINT, previous_handler)
-    runtime.cancel_active_task()
+    runtime.close()
     return 0
 
 
