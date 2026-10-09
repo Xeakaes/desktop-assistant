@@ -6,6 +6,8 @@ import json
 import os
 from pathlib import Path
 
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QComboBox,
     QFormLayout,
@@ -50,6 +52,10 @@ class SettingsWindow(QWidget):
         super().__init__(parent)
         self.setWindowTitle("Ayarlar — Desktop Assistant")
         self.setMinimumWidth(420)
+        # Closing the settings window must NOT quit the whole app (WA_QuitOnClose
+        # is true by default for top-level widgets; the avatar is a Tool window
+        # and does not keep the app alive).
+        self.setAttribute(Qt.WidgetAttribute.WA_QuitOnClose, False)
         self._settings_path = settings_path
         self._secrets_path = secrets_path
 
@@ -101,6 +107,10 @@ class SettingsWindow(QWidget):
         layout.addLayout(buttons)
 
         self.load()
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        self.hide()
+        event.ignore()
 
     def load(self) -> None:
         settings = self._read(self._settings_path)
