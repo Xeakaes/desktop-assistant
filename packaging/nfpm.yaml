@@ -1,0 +1,19 @@
+name: desktop-assistant
+arch: amd64
+platform: linux
+version: ${APP_VERSION}
+section: utils
+priority: optional
+maintainer: Xeakaes <194935315+Xeakaes@users.noreply.github.com>
+description: Desktop AI Assistant with chat GUI, avatar mode, and bundled screen-control.
+license: MIT
+contents:
+  - src: ./dist/desktop-assistant
+    dst: /opt/desktop-assistant
+    type: tree
+  - src: ./packaging/desktop-assistant.desktop
+    dst: /usr/share/applications/desktop-assistant.desktop
+  - src: ./packaging/icon.png
+    dst: /usr/share/icons/hicolor/256x256/apps/desktop-assistant.png
+scripts:
+  postinstall: ./packaging/postinstall.sh
