@@ -49,6 +49,36 @@ def create_provider(
             timeout_s=timeout_s,
             session=session,
         )
+    if ptype == "groq":
+        api_key = secrets.get("groq_api_key")
+        if not api_key:
+            raise ProviderError(
+                "groq provider requires secrets.groq_api_key",
+                error_code="missing_api_key",
+            )
+        return OpenAICompatProvider(
+            base_url=provider_cfg.get("url", "https://api.groq.com/openai/v1"),
+            api_key=api_key,
+            model=provider_cfg.get("model"),
+            timeout_s=timeout_s,
+            session=session,
+        )
+    if ptype == "google":
+        api_key = secrets.get("google_api_key")
+        if not api_key:
+            raise ProviderError(
+                "google provider requires secrets.google_api_key",
+                error_code="missing_api_key",
+            )
+        return OpenAICompatProvider(
+            base_url=provider_cfg.get(
+                "url", "https://generativelanguage.googleapis.com/v1beta/openai"
+            ),
+            api_key=api_key,
+            model=provider_cfg.get("model"),
+            timeout_s=timeout_s,
+            session=session,
+        )
     if ptype == "nararouter":
         api_key = secrets.get("nararouter_api_key")
         if not api_key:

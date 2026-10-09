@@ -54,3 +54,37 @@ def test_create_unknown_type():
     with pytest.raises(ProviderError) as ei:
         create_provider({"provider": {"type": "nope"}}, {})
     assert ei.value.error_code == "unknown_provider"
+
+
+def test_create_groq_profile():
+    p = create_provider(
+        {"provider": {"type": "groq", "model": "qwen/qwen3.8-27b"}},
+        {"groq_api_key": "gsk_x"},
+    )
+    assert isinstance(p, OpenAICompatProvider)
+    assert p.api_key == "gsk_x"
+    assert "api.groq.com" in p.base_url
+    assert p.base_url.endswith("/openai/v1")
+
+
+def test_create_groq_missing_key():
+    with pytest.raises(ProviderError) as ei:
+        create_provider({"provider": {"type": "groq"}}, {})
+    assert ei.value.error_code == "missing_api_key"
+
+
+def test_create_google_profile():
+    p = create_provider(
+        {"provider": {"type": "google", "model": "gemini-3.8-flash"}},
+        {"google_api_key": "AIza-x"},
+    )
+    assert isinstance(p, OpenAICompatProvider)
+    assert p.api_key == "AIza-x"
+    assert "generativelanguage.googleapis.com" in p.base_url
+    assert p.base_url.endswith("/v1beta/openai")
+
+
+def test_create_google_missing_key():
+    with pytest.raises(ProviderError) as ei:
+        create_provider({"provider": {"type": "google"}}, {})
+    assert ei.value.error_code == "missing_api_key"
