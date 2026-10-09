@@ -133,6 +133,24 @@ Manual desktop checklist: both modes launch, switch persists across restart, the
 
 - `core/` stays Qt-free (test).
 - Secrets only in `config/secrets.json` 0600; never logged.
-- Turkish UI strings.
+- Turkish UI strings (until i18n lands in §12 — then all strings go through the catalog).
 - No network in tests; no GitHub publish; no packaging in this milestone.
 - M0 CLI and avatar M1 behavior remain working (regression suite green).
+
+## 12. Internationalization (i18n)
+
+- Languages v1: **Türkçe (tr)** — default — and **English (en)**. Every user-visible string in both catalogs; no mixed-language screens (human partner requirement: switching a language must yield a complete UI — zero untranslated leftovers).
+- Implementation: Qt `QTranslator` + `tr()` is **not** used (no `.ts` toolchain). Instead a small pure-Python catalog:
+  - `ui/i18n.py` (pure, no Qt):
+    - `LANGUAGES = ("tr", "en")`
+    - `STRINGS: dict[str, dict[str, str]]` — flat key → {tr, en} map; keys are dotted English identifiers (`sidebar.new_chat`, `settings.theme`, `menu.avatar_mode`, …).
+    - `class I18n: def __init__(self, lang: str)`; `def t(self, key: str, **fmt) -> str` — lookup, `KeyError` → raises `MissingTranslationError` (so missing keys fail tests, not ship silently); `**fmt` applied via `str.format_map` when placeholders present.
+    - `def set_language(self, lang: str) -> None`; `current` property.
+  - Module-level singleton `i18n = I18n("tr")` imported as `from ui.i18n import i18n`.
+- All UI construction sites call `i18n.t("...")`; dynamic labels re-render on language change via a `language_changed` signal on a small `QObject` notifier (`ui/i18n_bridge.py`) **or** full window rebuild — choose rebuild-on-change for simplicity (Settings saves language → status "dil değişikliği yeniden başlatmada geçerli" is **not** accepted: language applies immediately in the open window by re-translating all registered widgets).
+  - Simplest reliable approach: `MainWindow`/`SettingsWindow`/`AvatarWindow` register their translatable widgets via `retranslate()` methods that re-`setText`/`setPlaceholderText` from catalog; `i18n.language_changed` signal calls each registered `retranslate`.
+- Language persisted in `config/ui.json` as `"lang": "tr"|"en"`.
+- Settings gains "Dil" combo (Türkçe/English); change applies immediately (no restart).
+- First-run mode chooser is translated too (catalog keys).
+- Completeness test (unit): `test_every_key_has_both_languages` — every entry in `STRINGS` has non-empty `tr` and `en`; plus a registry test that walks a frozen list of expected keys used by GUI+avatar (explicit `EXPECTED_KEYS` tuple in the test) asserting no orphan/missing keys. Adding a UI string without catalog entries fails CI.
+- Runtime safety: `MissingTranslationError` in dev/tests; in the shipped UI path `t()` is still strict (fail loud beats half-translated UI; catalog completeness is enforced by tests).
