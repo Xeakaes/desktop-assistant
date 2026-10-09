@@ -53,6 +53,12 @@ class App:
         self.signals.finished.connect(self._on_finished)
         self.signals.activity.connect(self.bubble.set_tool_activity)
         self.bridge.sig.connect(self._on_event)
+        try:
+            from app_entry.entry import maybe_spawn_server
+
+            maybe_spawn_server(self._settings_cache)
+        except Exception as exc:
+            print(f"screen-control spawn skipped: {exc}", file=sys.stderr)
         screen = QApplication.primaryScreen().geometry()
         self.avatar.move(screen.width() - 220, screen.height() - 260)
         self.avatar.show()

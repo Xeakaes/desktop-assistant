@@ -43,6 +43,13 @@ def main() -> int:
             settings_path=SETTINGS_PATH,
             secrets_path=SECRETS_PATH,
         )
+        try:
+            from app_entry.entry import maybe_spawn_server
+            from core.config import load_settings
+
+            maybe_spawn_server(load_settings(SETTINGS_PATH))
+        except Exception as exc:
+            print(f"screen-control spawn skipped: {exc}", file=sys.stderr)
         app.aboutToQuit.connect(runtime.close)
         app.aboutToQuit.connect(history.close)
         win.show()
