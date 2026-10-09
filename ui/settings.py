@@ -1,4 +1,4 @@
-"""Settings window (spec §4.4): provider, screen-control, permissions, avatar."""
+"""Settings window v2: general (lang/theme/mode), provider, screen, perms, packs."""
 
 from __future__ import annotations
 
@@ -6,10 +6,11 @@ import json
 import os
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QComboBox,
+    QFileDialog,
     QFormLayout,
     QHBoxLayout,
     QLabel,
@@ -19,6 +20,11 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+from ui.avatar.pack import PackError, build_pack, sanitize_pack_name
+from ui.i18n import i18n
+from ui.prefs import THEMES, load_prefs, save_prefs, UiPrefs
+from ui.theme import REQUIRED_OBJECTNAMES  # noqa: F401  (theme presence check)
 
 PROVIDER_TYPES = ["ollama", "openai_compat", "nvidia", "groq", "google", "nararouter"]
 PERMISSION_LEVELS = ["allow", "ask", "deny"]
@@ -40,7 +46,6 @@ PROVIDER_KEY_SECRETS = {
 
 
 def merge_permissions(existing: dict, default: str, per_tool: dict) -> dict:
-    """Update only the levels the UI shows; keep hand-edited tool entries."""
     merged = dict(existing)
     merged["*"] = default
     merged.update(per_tool)
@@ -48,16 +53,32 @@ def merge_permissions(existing: dict, default: str, per_tool: dict) -> dict:
 
 
 class SettingsWindow(QWidget):
-    def __init__(self, settings_path: Path, secrets_path: Path, parent=None) -> None:
+    language_changed = Signal(str)
+    theme_changed = Signal(str)
+
+    def __init__(
+        self,
+        settings_path: Path,
+        secrets_path: Path,
+        ui_json_path: Path | None = None,
+        parent=None,
+    ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Ayarlar — Desktop Assistant")
-        self.setMinimumWidth(420)
-        # Closing the settings window must NOT quit the whole app (WA_QuitOnClose
-        # is true by default for top-level widgets; the avatar is a Tool window
-        # and does not keep the app alive).
-        self.setAttribute(Qt.WidgetAttribute.WA_QuitOnClose, False)
+        self.setObjectName("settings_win")
+        self.setMinimumWidth(460)
         self._settings_path = settings_path
         self._secrets_path = secrets_path
+        self._ui_json_path = ui_json_path or (
+            settings_path.parent / "ui.json"
+        )
+        self.setAttribute(Qt.WidgetAttribute.WA_QuitOnClose, False)
+
+        self._lang = QComboBox(self)
+        self._lang.addItems(["tr", "en"])
+        self._theme = QComboBox(self)
+        self._theme.addItems(list(THEMES))
+        self._mode = QComboBox(self)
+        self._mode.addItems(["gui", "avatar"])
 
         self._provider_type = QComboBox(self)
         self._provider_type.addItems(PROVIDER_TYPES)
@@ -74,10 +95,17 @@ class SettingsWindow(QWidget):
         self._perm_default.addItems(PERMISSION_LEVELS)
         self._perm_tools = {}
         self._avatar = QComboBox(self)
+        self._pack_path = QLineEdit(self)
+        self._pack_name = QLineEdit(self)
+        self._pack_pick = QPushButton(self)
+        self._pack_build = QPushButton(self)
 
         form = QFormLayout()
+        form.addRow("Dil", self._lang)
+        form.addRow("Tema", self._theme)
+        form.addRow("Mod", self._mode)
         form.addRow("Sağlayıcı", self._provider_type)
-        form.addRow("URL (boş = varsayılan)", self._provider_url)
+        form.addRow("URL", self._provider_url)
         form.addRow("Model", self._provider_model)
         form.addRow("API anahtarı", self._provider_key)
         form.addRow("SC host", self._sc_host)
@@ -90,11 +118,16 @@ class SettingsWindow(QWidget):
             self._perm_tools[tool] = combo
             form.addRow(f"İzin ({tool})", combo)
         form.addRow("Avatar", self._avatar)
+        form.addRow("Fotoğraf", self._pack_path)
+        form.addRow("Paket adı", self._pack_name)
+        form.addRow("", self._pack_pick)
+        form.addRow("", self._pack_build)
 
         self._status = QLabel("", self)
-        save_btn = QPushButton("Kaydet", self)
+        self._status.setObjectName("muted")
+        save_btn = QPushButton(self)
         save_btn.clicked.connect(self.save)
-        close_btn = QPushButton("Kapat", self)
+        close_btn = QPushButton(self)
         close_btn.clicked.connect(self.close)
         buttons = QHBoxLayout()
         buttons.addWidget(save_btn)
@@ -106,15 +139,39 @@ class SettingsWindow(QWidget):
         layout.addWidget(self._status)
         layout.addLayout(buttons)
 
-        self.load()
+        self._save_btn = save_btn
+        self._close_btn = close_btn
+        self._form_labels = []  # filled lazily via retranslate store
 
-    def closeEvent(self, event: QCloseEvent) -> None:
-        self.hide()
-        event.ignore()
+        self._pack_pick.clicked.connect(self._pick_photo)
+        self._pack_build.clicked.connect(self._build_pack)
+
+        self.load()
+        self.retranslate()
+
+    def retranslate(self) -> None:
+        t = i18n.t
+        self.setWindowTitle(t("settings.title"))
+        self._save_btn.setText(t("settings.save"))
+        self._close_btn.setText(t("settings.close"))
+        self._pack_pick.setText(t("settings.pack_pick"))
+        self._pack_build.setText(t("settings.pack_build"))
+        self._pack_name.setPlaceholderText(t("settings.pack_name"))
+        # combo item texts (order matches indices)
+        self._lang.setItemText(0, t("settings.lang_tr"))
+        self._lang.setItemText(1, t("settings.lang_en"))
+        self._theme.setItemText(0, t("settings.theme_dark"))
+        self._theme.setItemText(1, t("settings.theme_light"))
+        self._mode.setItemText(0, t("settings.mode") + ": GUI")
+        self._mode.setItemText(1, t("settings.mode") + ": Avatar")
 
     def load(self) -> None:
         settings = self._read(self._settings_path)
         secrets = self._read(self._secrets_path)
+        prefs = load_prefs(self._ui_json_path)
+        self._lang.setCurrentIndex(0 if prefs.lang == "tr" else 1)
+        self._theme.setCurrentIndex(list(THEMES).index(prefs.theme))
+        self._mode.setCurrentIndex(0 if (prefs.mode or "gui") == "gui" else 1)
         provider = settings.get("provider") or {}
         idx = self._provider_type.findText(provider.get("type", "ollama"))
         self._provider_type.setCurrentIndex(max(0, idx))
@@ -166,7 +223,65 @@ class SettingsWindow(QWidget):
         secrets["screen_control_api_key"] = self._sc_key.text().strip()
         self._write(self._settings_path, settings)
         self._write(self._secrets_path, secrets, mode=0o600)
-        self._status.setText("Kaydedildi — sağlayıcı/izinler için yeniden başlatın")
+        lang = "tr" if self._lang.currentIndex() == 0 else "en"
+        theme = self._theme.currentText()
+        mode = "gui" if self._mode.currentIndex() == 0 else "avatar"
+        old = load_prefs(self._ui_json_path)
+        save_prefs(self._ui_json_path, UiPrefs(mode=mode, theme=theme, lang=lang))
+        if lang != i18n.current:
+            i18n.set_language(lang)
+            self.language_changed.emit(lang)
+            self.retranslate()
+        if theme != old.theme:
+            self.theme_changed.emit(theme)
+        self._status.setText(i18n.t("settings.save_restart_note"))
+
+    def _pick_photo(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Fotoğraf", str(Path.home()), "Images (*.png *.jpg *.jpeg)"
+        )
+        if path:
+            self._pack_path.setText(path)
+            if not self._pack_name.text().strip():
+                self._pack_name.setText(Path(path).stem)
+
+    def _build_pack(self) -> None:
+        src = self._pack_path.text().strip()
+        if not src:
+            self._status.setText(i18n.t("settings.pack_bad_image"))
+            return
+        try:
+            name = sanitize_pack_name(self._pack_name.text() or Path(src).stem)
+        except PackError:
+            self._status.setText(i18n.t("settings.pack_bad_image"))
+            return
+        avatars_root = Path(__file__).resolve().parent.parent / "assets" / "avatars"
+        out = avatars_root / name
+        try:
+            self.setCursor(Qt.CursorShape.WaitCursor)
+            build_pack(Path(src), out, name)
+        except PackError as exc:
+            msg = (
+                i18n.t("settings.pack_exists", name=name)
+                if "exists" in str(exc)
+                else i18n.t("settings.pack_bad_image")
+            )
+            self._status.setText(msg)
+        except Exception:
+            self._status.setText(i18n.t("settings.pack_bad_image"))
+        else:
+            self._status.setText(i18n.t("settings.pack_success", name=name))
+            self._avatar.clear()
+            self._avatar.addItems(self._list_avatars())
+            idx = self._avatar.findText(name)
+            if idx >= 0:
+                self._avatar.setCurrentIndex(idx)
+        finally:
+            self.unsetCursor()
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        self.hide()
+        event.ignore()
 
     def _list_avatars(self) -> list:
         root = Path(__file__).resolve().parent.parent / "assets" / "avatars"
