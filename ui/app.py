@@ -5,6 +5,12 @@ from __future__ import annotations
 import os
 import sys
 
+# Bootstrap: allow running as a plain script (python ui/app.py) where
+# sys.path[0] is the ui/ directory, not the repo root.
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
 from PySide6.QtWidgets import QApplication
 
 from core.bootstrap import build_runtime

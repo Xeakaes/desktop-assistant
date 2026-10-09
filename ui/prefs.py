@@ -80,9 +80,30 @@ def switch_lang(path: Path, lang: str) -> None:
     save_prefs(path, replace(prefs, lang=lang))
 
 
+def restart_argv() -> list[str]:
+    """Build a correct re-exec argv for the current launch mode.
+
+    - python -m pkg.mod  -> [exe, -m, pkg.mod, *args]  (keeps -m; without it
+      sys.path[0] becomes the module's directory and sibling packages break)
+    - frozen (PyInstaller) -> [exe, *args]  (exe is the app itself)
+    - python path/to/script.py -> [exe, path, *args]
+    """
+    import sys
+
+    exe = sys.executable
+    args = sys.argv[1:]
+    if getattr(sys, "frozen", False):
+        return [exe, *args]
+    spec = getattr(sys.modules.get("__main__"), "__spec__", None)
+    if spec is not None and spec.name:
+        return [exe, "-m", spec.name, *args]
+    return [exe, *sys.argv]
+
+
 def restart_into(path: Path, mode: str) -> None:
     import os
     import sys
 
     switch_mode(path, mode)
-    os.execv(sys.executable, [sys.executable, *sys.argv])
+    argv = restart_argv()
+    os.execv(sys.executable, argv)

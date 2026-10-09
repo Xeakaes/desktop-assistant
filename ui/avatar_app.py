@@ -9,6 +9,12 @@ from pathlib import Path
 
 import os
 
+# Bootstrap: allow running as a plain script (python ui/avatar_app.py) where
+# sys.path[0] is the ui/ directory, not the repo root.
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QApplication, QMessageBox, QMenu

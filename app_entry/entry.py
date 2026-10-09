@@ -8,6 +8,12 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Bootstrap: allow running as a plain script (python app_entry/entry.py)
+# where sys.path[0] is the file's directory, not the repo root.
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
 from core.paths import bundle_root, config_dir, is_frozen, repo_root
 
 

@@ -225,7 +225,10 @@ class ChatWindow(QMainWindow):
         import os
         import sys
 
-        os.execv(sys.executable, [sys.executable, *sys.argv])
+        from ui.prefs import restart_argv
+
+        argv = restart_argv()
+        os.execv(sys.executable, argv)
 
     def _open_settings(self) -> None:
         from ui.settings import SettingsWindow
