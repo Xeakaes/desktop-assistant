@@ -90,6 +90,46 @@ def test_sidebar_toggle_width(tmp_path):
     win.hide()
 
 
+def test_init_does_not_create_session(tmp_path):
+    """Opening the window must not persist an empty session."""
+    app, win = _make_window(tmp_path)
+    assert win._session_id is None
+    assert win._history.list_sessions() == []
+    win.hide()
+
+
+def test_new_chat_does_not_create_session(tmp_path):
+    app, win = _make_window(tmp_path)
+    win.new_chat()
+    assert win._session_id is None
+    assert win._history.list_sessions() == []
+    win.hide()
+
+
+def test_first_send_creates_exactly_one_session(tmp_path):
+    app, win = _make_window(tmp_path)
+    win._runtime = FakeRuntime(win)
+    win._chat_input.setPlainText("selam")
+    win._send()
+    sessions = win._history.list_sessions()
+    assert len(sessions) == 1
+    assert win._session_id == sessions[0][0]
+    win.hide()
+
+
+def test_purge_empty_sessions(tmp_path):
+    from ui.history import HistoryStore
+
+    store = HistoryStore(tmp_path / "h.db")
+    store.create_session("bos")
+    filled = store.create_session("dolu")
+    store.append(filled, "user", "merhaba")
+    removed = store.purge_empty_sessions()
+    assert removed == 1
+    assert [s[0] for s in store.list_sessions()] == [filled]
+    store.close()
+
+
 def test_confirmation_requested_resolves_approved(tmp_path, monkeypatch):
     """P1 GUI: confirmation_requested must resolve via runtime with Allow."""
     from core.events import Event
@@ -161,8 +201,6 @@ def test_send_session_id_snapshotted_at_send_time(tmp_path, monkeypatch):
             pass
 
     win._runtime = RT()
-    old_sid = win._session_id
-
     created = []
 
     class FakeThread:
@@ -175,12 +213,20 @@ def test_send_session_id_snapshotted_at_send_time(tmp_path, monkeypatch):
             pass  # hold the worker until the test releases it
 
     monkeypatch.setattr(_t, "Thread", FakeThread)
-    win._chat_input.setPlainText("selam")
+    # First send creates the session lazily and completes synchronously.
+    win._chat_input.setPlainText("ilk")
     win._send()
-    assert created, "worker thread must be created"
+    created[0]._target(*created[0]._args)
+    old_sid = win._session_id
+    assert old_sid is not None
+    # Second send is held; switch chats before releasing the worker.
+    win._busy = False
+    win._chat_input.setPlainText("ikinci")
+    win._send()
+    assert len(created) == 2
     win.new_chat()
     new_sid = win._session_id
-    assert new_sid != old_sid
-    created[0]._target(*created[0]._args)
-    assert started == [old_sid], "task must bind to the session active at send time"
+    assert new_sid is None or new_sid != old_sid
+    created[1]._target(*created[1]._args)
+    assert started == [old_sid, old_sid], "task must bind to the session at send time"
     win.hide()

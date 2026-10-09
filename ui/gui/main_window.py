@@ -162,6 +162,7 @@ class ChatWindow(QMainWindow):
         language_bridge.changed.connect(self.retranslate)
 
         self.retranslate()
+        self._history.purge_empty_sessions()
         self.new_chat()
 
     # --- i18n / theme ---
@@ -242,7 +243,9 @@ class ChatWindow(QMainWindow):
     # --- sessions ---
 
     def new_chat(self) -> None:
-        self._session_id = self._history.create_session()
+        # Lazy: the session row is created on the first sent message,
+        # so closing without typing does not leave an empty session.
+        self._session_id = None
         self._clear_messages()
         self._reload_sessions()
         self._chat_input.setFocus()
@@ -300,6 +303,8 @@ class ChatWindow(QMainWindow):
             return
         self._chat_input.clear()
         self._append("user", text)
+        if self._session_id is None:
+            self._session_id = self._history.create_session()
         self._history.append(self._session_id, "user", text)
         self._reload_sessions()
         self._set_busy(True)

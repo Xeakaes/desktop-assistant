@@ -107,6 +107,15 @@ class HistoryStore:
             self._conn.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
             self._conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
 
+    def purge_empty_sessions(self) -> int:
+        """Remove sessions that have no messages; returns number removed."""
+        with self._lock, self._conn:
+            cur = self._conn.execute(
+                "DELETE FROM sessions WHERE id NOT IN"
+                " (SELECT DISTINCT session_id FROM messages)"
+            )
+            return cur.rowcount
+
     def close(self) -> None:
         with self._lock:
             self._conn.close()

@@ -43,7 +43,8 @@ class App:
         self.runtime, self.bus, self.session = build_runtime()
         self._settings_cache = load_settings(self.settings_path)
         self._history = HistoryStore(default_db_path())
-        self._sid = self._history.create_session()
+        self._history.purge_empty_sessions()
+        self._sid: str | None = None  # created lazily on first send
         avatar_name = self._settings_cache.get("avatar", "base")
         self.avatar = self._make_avatar(avatar_name)
         self.bubble = BubbleWindow(on_send=self._on_send, on_cancel=self._on_cancel)
@@ -77,6 +78,8 @@ class App:
 
     def _on_send(self, text: str) -> None:
         self.bubble.append_message("user", text)
+        if self._sid is None:
+            self._sid = self._history.create_session()
         self._history.append(self._sid, "user", text)
         self.bubble.set_busy(True)
         threading.Thread(target=self._run_agent, args=(text,), daemon=True).start()

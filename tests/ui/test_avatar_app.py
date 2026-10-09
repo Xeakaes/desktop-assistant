@@ -74,14 +74,21 @@ def _make_app(tmp_path, monkeypatch, runtime=None):
 def test_avatar_first_message_no_fk_error(tmp_path, monkeypatch):
     """P0: first user message must persist without FOREIGN KEY error."""
     app, ui, rt = _make_app(tmp_path, monkeypatch)
+    ui._on_send("merhaba")  # must not raise sqlite3.IntegrityError
     sid = ui._sid
-    assert sid, "avatar app must expose a real session id"
+    assert sid, "avatar app must create a session on first send"
     sessions = [s[0] for s in ui._history.list_sessions()]
     assert sid in sessions, "session must exist in history store before messages"
-    # must not raise sqlite3.IntegrityError (FK)
-    ui._on_send("merhaba")
     msgs = ui._history.messages(sid)
     assert msgs and msgs[0] == ("user", "merhaba", None)
+    ui.close()
+
+
+def test_avatar_init_does_not_create_session(tmp_path, monkeypatch):
+    """Opening avatar mode must not persist an empty session."""
+    app, ui, rt = _make_app(tmp_path, monkeypatch)
+    assert ui._sid is None
+    assert ui._history.list_sessions() == []
     ui.close()
 
 

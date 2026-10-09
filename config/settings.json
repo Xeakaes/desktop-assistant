@@ -11,7 +11,11 @@
   "permissions": {
     "*": "deny",
     "screenshot": "allow",
-    "list_windows": "allow"
+    "list_windows": "allow",
+    "ocr_screen": "ask",
+    "mouse": "ask",
+    "keyboard": "ask",
+    "focus_window": "ask"
   },
   "agent": {
     "max_tool_calls": 10,
