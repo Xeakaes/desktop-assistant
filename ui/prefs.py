@@ -64,3 +64,11 @@ def switch_lang(path: Path, lang: str) -> None:
         raise ValueError(f"unknown language: {lang}")
     prefs = load_prefs(path)
     save_prefs(path, replace(prefs, lang=lang))
+
+
+def restart_into(path: Path, mode: str) -> None:
+    import os
+    import sys
+
+    switch_mode(path, mode)
+    os.execv(sys.executable, [sys.executable, *sys.argv])
