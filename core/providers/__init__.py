@@ -7,6 +7,11 @@ from core.providers.ollama import OllamaProvider
 from core.providers.openai_compat import OpenAICompatProvider
 
 
+def _url(provider_cfg: dict, default: str, secrets: dict | None = None) -> str:
+    value = provider_cfg.get("url") or default
+    return value.rstrip("/")
+
+
 def create_provider(
     settings: dict, secrets: dict, session=None
 ) -> ModelProvider:
@@ -15,7 +20,7 @@ def create_provider(
     timeout_s = float((settings.get("agent") or {}).get("model_timeout_s", 60))
     if ptype == "ollama":
         return OllamaProvider(
-            base_url=provider_cfg.get("url", "http://127.0.0.1:11434"),
+            base_url=_url(provider_cfg, "http://127.0.0.1:11434"),
             model=provider_cfg.get("model", "llama3.2"),
             api_key=secrets.get("ollama_api_key"),
             timeout_s=timeout_s,
@@ -29,7 +34,7 @@ def create_provider(
                 error_code="missing_api_key",
             )
         return OpenAICompatProvider(
-            base_url=provider_cfg.get("url", "https://api.openai.com/v1"),
+            base_url=_url(provider_cfg, "https://api.openai.com/v1"),
             api_key=api_key,
             model=provider_cfg.get("model"),
             timeout_s=timeout_s,
@@ -43,7 +48,7 @@ def create_provider(
                 error_code="missing_api_key",
             )
         return OpenAICompatProvider(
-            base_url=provider_cfg.get("url", "https://integrate.api.nvidia.com/v1"),
+            base_url=_url(provider_cfg, "https://integrate.api.nvidia.com/v1"),
             api_key=api_key,
             model=provider_cfg.get("model"),
             timeout_s=timeout_s,
@@ -57,7 +62,7 @@ def create_provider(
                 error_code="missing_api_key",
             )
         return OpenAICompatProvider(
-            base_url=provider_cfg.get("url", "https://api.groq.com/openai/v1"),
+            base_url=_url(provider_cfg, "https://api.groq.com/openai/v1"),
             api_key=api_key,
             model=provider_cfg.get("model"),
             timeout_s=timeout_s,
@@ -71,8 +76,8 @@ def create_provider(
                 error_code="missing_api_key",
             )
         return OpenAICompatProvider(
-            base_url=provider_cfg.get(
-                "url", "https://generativelanguage.googleapis.com/v1beta/openai"
+            base_url=_url(
+                provider_cfg, "https://generativelanguage.googleapis.com/v1beta/openai"
             ),
             api_key=api_key,
             model=provider_cfg.get("model"),
@@ -86,7 +91,7 @@ def create_provider(
                 "nararouter provider requires secrets.nararouter_api_key",
                 error_code="missing_api_key",
             )
-        url = provider_cfg.get("url") or secrets.get(
+        url = _url(provider_cfg, "") or secrets.get(
             "openai_compatible_url_for_nararouter", ""
         )
         url = url.rstrip("/")

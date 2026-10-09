@@ -88,3 +88,43 @@ def test_create_google_missing_key():
     with pytest.raises(ProviderError) as ei:
         create_provider({"provider": {"type": "google"}}, {})
     assert ei.value.error_code == "missing_api_key"
+
+
+def test_create_groq_empty_url_uses_default():
+    p = create_provider(
+        {"provider": {"type": "groq", "url": "", "model": "m"}},
+        {"groq_api_key": "gsk_x"},
+    )
+    assert p.base_url == "https://api.groq.com/openai/v1"
+
+
+def test_create_openai_compat_empty_url_uses_openai_default():
+    p = create_provider(
+        {"provider": {"type": "openai_compat", "url": "", "model": "m"}},
+        {"api_key": "sk-x"},
+    )
+    assert p.base_url == "https://api.openai.com/v1"
+
+
+def test_create_ollama_empty_url_uses_default():
+    p = create_provider(
+        {"provider": {"type": "ollama", "url": "", "model": "m"}},
+        {},
+    )
+    assert p.base_url == "http://127.0.0.1:11434"
+
+
+def test_create_nvidia_empty_url_uses_default():
+    p = create_provider(
+        {"provider": {"type": "nvidia", "url": "", "model": "m"}},
+        {"nvidia_api_key": "nvapi-x"},
+    )
+    assert p.base_url == "https://integrate.api.nvidia.com/v1"
+
+
+def test_create_google_empty_url_uses_default():
+    p = create_provider(
+        {"provider": {"type": "google", "url": "", "model": "m"}},
+        {"google_api_key": "AIza-x"},
+    )
+    assert "generativelanguage.googleapis.com" in p.base_url

@@ -7,9 +7,11 @@ import sys
 import threading
 from pathlib import Path
 
+import os
+
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QApplication, QMenu
+from PySide6.QtWidgets import QApplication, QMessageBox, QMenu
 
 from core.bootstrap import DEFAULT_SECRETS, DEFAULT_SETTINGS, build_runtime
 from core.config import load_settings
@@ -35,9 +37,7 @@ class App:
         self.runtime, self.bus, self.session = build_runtime()
         self._settings_cache = load_settings(self.settings_path)
         avatar_name = self._settings_cache.get("avatar", "base")
-        self.avatar = AvatarWindow(
-            ASSETS / avatar_name, context_menu_factory=self.context_menu
-        )
+        self.avatar = self._make_avatar(avatar_name)
         self.bubble = BubbleWindow(on_send=self._on_send, on_cancel=self._on_cancel)
         self.settings_win = SettingsWindow(self.settings_path, self.secrets_path)
         self.bridge = QtBridge(self.bus)
@@ -49,6 +49,17 @@ class App:
         self.avatar.move(screen.width() - 220, screen.height() - 260)
         self.avatar.show()
         self.bubble.move(max(0, self.avatar.x() - 340), max(0, self.avatar.y() - 80))
+        if getattr(self, "_pending_avatar_note", ""):
+            self.bubble.append_message("tool", self._pending_avatar_note)
+
+    def _make_avatar(self, name: str) -> AvatarWindow:
+        try:
+            return AvatarWindow(ASSETS / name, context_menu_factory=self.context_menu)
+        except Exception:
+            if name != "base":
+                self._pending_avatar_note = f"Avatar '{name}' bozuk — 'base' kullanılıyor"
+                return AvatarWindow(ASSETS / "base", context_menu_factory=self.context_menu)
+            raise
 
     def _on_send(self, text: str) -> None:
         self.bubble.append_message("user", text)
@@ -59,20 +70,12 @@ class App:
         try:
             tid = self.runtime.begin_task(SID, text)
             self.runtime.run_task(tid)
-            final = ""
-            for m in reversed(self.session.messages(SID)):
-                if m.role == "assistant" and m.content:
-                    final = m.content
-                    break
-            self.signals.finished.emit(final)
         except Exception as exc:
             self.signals.finished.emit(f"Hata: {exc}")
 
     def _on_finished(self, final: str) -> None:
         self.bubble.set_busy(False)
         self.bubble.set_tool_activity("")
-        if final:
-            self.bubble.append_message("assistant", final)
 
     def _on_cancel(self) -> None:
         self.runtime.cancel_active_task()
@@ -88,12 +91,30 @@ class App:
             self.signals.activity.emit(f"▸ {name} çalışıyor…")
             self.bubble.append_message("tool", f"{name} başladı")
         elif event.name == "tool_finished":
+            self.bubble.set_tool_activity("")
             name = event.payload.get("tool_name", "")
             ok = event.payload.get("ok", "")
-            self.bubble.append_message("tool", f"{name} bitti ({ok})")
+            self.bubble.append_message(
+                "tool", f"{name} bitti ({'Tamam' if ok else 'Hata'})"
+            )
+        elif event.name == "assistant_message":
+            text = event.payload.get("text", "")
+            if text:
+                self.bubble.append_message("assistant", text)
+        elif event.name == "agent_finished":
+            self._on_finished("")
+        elif event.name == "agent_error":
+            self._on_finished("")
+            msg = event.payload.get("message") or event.payload.get("error_code", "hata")
+            code = event.payload.get("error_code", "")
+            self.bubble.append_message("assistant", f"Hata ({code}): {msg}")
+        elif event.name == "agent_cancelled":
+            self._on_finished("")
+            self.bubble.append_message("assistant", "Görev iptal edildi.")
         elif event.name == "confirmation_requested":
             self.signals.activity.emit(
-                f"▸ onay bekleniyor: {event.payload.get('tool_name', '?')}"
+                f"▸ onay bekleniyor: {event.payload.get('tool_name', '?')} "
+                "(onay penceresi M2'de — İptal'e basın)"
             )
 
     def context_menu(self) -> QMenu:
@@ -140,7 +161,15 @@ class App:
 
 def build_ui() -> App:
     app = QApplication.instance() or QApplication(sys.argv)
-    ui = App()
+    try:
+        ui = App()
+    except Exception as exc:
+        QMessageBox.critical(
+            None,
+            "Başlatma hatası",
+            f"Agent başlatılamadı:\n{exc}\n\nAyarları config/ altından kontrol edin.",
+        )
+        raise SystemExit(1) from exc
     app.aboutToQuit.connect(ui.runtime.close)
     return ui
 
@@ -149,7 +178,8 @@ def main() -> int:
     app = QApplication.instance() or QApplication(sys.argv)
     ui = build_ui()
     ui.bubble.show()
-    return app.exec()
+    code = app.exec()
+    os._exit(code)  # skip non-daemon ThreadPoolExecutor join on quit-while-busy
 
 
 if __name__ == "__main__":
