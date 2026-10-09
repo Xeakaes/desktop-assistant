@@ -35,7 +35,10 @@ class _ScreenControlTool(Tool):
         except requests.ConnectionError as exc:
             return ToolResult(ok=False, error=str(exc), error_code="server_unreachable")
         except Exception as exc:
-            return ToolResult(ok=False, error=str(exc), error_code="tool_exception")
+            msg = str(exc)
+            if "Request failed" in msg or "Max retries" in msg or "Connection" in msg:
+                return ToolResult(ok=False, error=msg, error_code="server_unreachable")
+            return ToolResult(ok=False, error=msg, error_code="tool_exception")
         if cancel.cancelled:
             return ToolResult(ok=False, error="cancelled during call", error_code="cancelled")
         return ToolResult(ok=True, data=data if isinstance(data, dict) else {"result": data})
@@ -47,10 +50,14 @@ class _ScreenControlTool(Tool):
 class _ScreenshotTool(_ScreenControlTool):
     def execute(self, arguments: dict, cancel: CancellationToken) -> ToolResult:
         def run(client, args):
-            path = args.get("path")
-            if path:
-                return client.screenshot(path=path)
-            return client.screenshot()
+            import tempfile
+            from pathlib import Path
+
+            path = args.get("path") or str(
+                Path(tempfile.gettempdir()) / "desktop-assistant-shot.jpg"
+            )
+            client.screenshot(output=path)
+            return {"path": path}
         return self._run(arguments, cancel, run)
 
 

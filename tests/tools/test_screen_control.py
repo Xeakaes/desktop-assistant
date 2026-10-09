@@ -18,10 +18,10 @@ class FakeClient:
         if self.exc:
             raise self.exc
 
-    def screenshot(self, path=None):
-        self.calls.append(("screenshot", path))
+    def screenshot(self, output=None, monitor=1, region=None):
+        self.calls.append(("screenshot", output))
         self._maybe_raise()
-        return {"path": path or self.screenshot_path}
+        return b"jpegbytes"
 
     def ocr(self, region=None):
         self.calls.append(("ocr", region))
@@ -68,7 +68,7 @@ def test_screenshot_calls_sdk_and_returns_path():
     client = FakeClient()
     reg = _registry(client)
     r = reg.get("screenshot").execute({}, CancellationToken())
-    assert r.ok and r.data["path"] == "/tmp/shot.png"
+    assert r.ok and r.data["path"].endswith(".jpg")
     assert client.calls[0][0] == "screenshot"
 
 

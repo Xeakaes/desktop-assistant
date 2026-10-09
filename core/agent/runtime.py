@@ -28,9 +28,21 @@ from core.tools.base import ToolResult
 from core.tools.registry import PermissionLevel, PermissionPolicy, ToolRegistry
 
 
+def _json_safe(value):
+    if isinstance(value, bytes):
+        return {"__bytes_len__": len(value)}
+    if isinstance(value, dict):
+        return {k: _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(v) for v in value]
+    return value
+
+
 def _result_content(result: ToolResult) -> str:
     if result.ok:
-        return json.dumps({"ok": True, "data": result.data or {}}, ensure_ascii=False)
+        return json.dumps(
+            {"ok": True, "data": _json_safe(result.data or {})}, ensure_ascii=False
+        )
     return json.dumps(
         {
             "ok": False,
@@ -74,6 +86,10 @@ class AgentRuntime:
     @property
     def active_task_id(self) -> str | None:
         return self._active_task_id
+
+    @property
+    def registry(self) -> ToolRegistry:
+        return self._registry
 
     def begin_task(self, session_id: str, user_text: str) -> str:
         task_id = uuid.uuid4().hex

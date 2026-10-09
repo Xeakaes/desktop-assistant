@@ -124,4 +124,22 @@ class OllamaProvider(ModelProvider):
                     arguments=_parse_arguments(fn.get("arguments")),
                 )
             )
+        if not tool_calls and text:
+            # Some models (e.g. qwen via Ollama) emit the tool call as a JSON
+            # object in content instead of the native tool_calls field.
+            stripped = text.strip()
+            if stripped.startswith("{") and stripped.endswith("}"):
+                try:
+                    embedded = json.loads(stripped)
+                except json.JSONDecodeError:
+                    embedded = None
+                if isinstance(embedded, dict) and "name" in embedded and "arguments" in embedded:
+                    tool_calls.append(
+                        ToolCall(
+                            id="ollama_0",
+                            name=embedded["name"],
+                            arguments=_parse_arguments(embedded.get("arguments")),
+                        )
+                    )
+                    text = None
         return ProviderResponse(text=text, tool_calls=tool_calls)

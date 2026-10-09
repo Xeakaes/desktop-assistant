@@ -60,6 +60,23 @@ def test_ollama_parses_tool_call_json_string_args():
     assert r.tool_calls[0].arguments == {"x": 1}
 
 
+def test_ollama_parses_tool_call_embedded_in_content():
+    # qwen-style: tool call JSON in content, no tool_calls field
+    payload = {
+        "message": {
+            "role": "assistant",
+            "content": '{"name": "screenshot", "arguments": {}}',
+        },
+        "done": True,
+    }
+    session = FakeSession(FakeResponse(payload))
+    p = OllamaProvider("http://127.0.0.1:11434", "m", session=session)
+    r = p.complete(_msgs(), [], CancellationToken())
+    assert r.tool_calls[0].name == "screenshot"
+    assert r.tool_calls[0].arguments == {}
+    assert r.text is None
+
+
 def test_ollama_http_timeout_maps_error_code():
     session = FakeSession(exc=requests.Timeout("boom"))
     p = OllamaProvider("http://127.0.0.1:11434", "m", timeout_s=7.0, session=session)
