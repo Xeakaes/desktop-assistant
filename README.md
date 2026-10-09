@@ -28,7 +28,7 @@ tar -xzf desktop-assistant_<version>_linux_amd64.tar.gz
 
 ### Windows (`.zip`)
 
-Extract `desktop-assistant_<version>_windows_amd64.zip` and run `desktop-assistant.exe`.
+Extract `desktop-assistant_<version>_windows_x64.zip` and run `desktop-assistant.exe`.
 
 ## First Run
 
@@ -112,7 +112,7 @@ tar -xzf desktop-assistant_<version>_linux_amd64.tar.gz
 
 ### Windows (`.zip`)
 
-`desktop-assistant_<version>_windows_amd64.zip` dosyasını çıkarıp `desktop-assistant.exe`'yi çalıştırın.
+`desktop-assistant_<version>_windows_x64.zip` dosyasını çıkarıp `desktop-assistant.exe`'yi çalıştırın.
 
 ## İlk Çalıştırma
 

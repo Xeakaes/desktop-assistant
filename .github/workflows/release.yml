@@ -74,7 +74,7 @@ jobs:
           env -u APP_VERSION dist/desktop-assistant/desktop-assistant.exe --version | grep -Fx "$APP_VERSION"
       - name: Package zip
         shell: pwsh
-        run: Compress-Archive -Path dist/desktop-assistant -DestinationPath "dist/desktop-assistant_${env:APP_VERSION}_windows_amd64.zip"
+        run:           Compress-Archive -Path dist/desktop-assistant -DestinationPath "dist/desktop-assistant_${env:APP_VERSION}_windows_x64.zip"
       - uses: actions/upload-artifact@v4
         with:
           name: windows-zip
