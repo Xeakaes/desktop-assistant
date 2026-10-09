@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Callable
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from PySide6.QtGui import QContextMenuEvent, QPixmap
+from PySide6.QtWidgets import QLabel, QMenu, QVBoxLayout, QWidget
 
 from ui.avatar.manifest import StateAnim, load_manifest
 from ui.avatar.state_machine import AvatarState
@@ -19,8 +20,14 @@ def error_timeout_ms() -> int:
 
 
 class AvatarWindow(QWidget):
-    def __init__(self, avatar_dir: Path, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        avatar_dir: Path,
+        parent: QWidget | None = None,
+        context_menu_factory: Callable[[], QMenu] | None = None,
+    ) -> None:
         super().__init__(parent)
+        self._context_menu_factory = context_menu_factory
         self._states: dict[str, StateAnim] = load_manifest(avatar_dir / "manifest.json")
         self._state: AvatarState = "idle"
         self._frame_index = 0
@@ -49,6 +56,10 @@ class AvatarWindow(QWidget):
 
     def current_state(self) -> AvatarState:
         return self._state
+
+    def contextMenuEvent(self, event: QContextMenuEvent) -> None:
+        if self._context_menu_factory is not None:
+            self._context_menu_factory().exec(event.globalPos())
 
     def set_state(self, state: AvatarState) -> None:
         if state == self._state and state != "error":
