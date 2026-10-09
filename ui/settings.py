@@ -17,13 +17,14 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QSpinBox,
     QVBoxLayout,
     QWidget,
 )
 
-from ui.avatar.pack import PackError, build_pack, sanitize_pack_name
+from ui.avatar.pack import PackError, build_pack, delete_pack, sanitize_pack_name
 from ui.i18n import i18n, language_bridge
 from ui.paths import SECRETS_PATH, SETTINGS_PATH, ui_json_path
 from ui.prefs import THEMES, load_prefs, save_prefs, UiPrefs
@@ -147,6 +148,7 @@ class SettingsWindow(QWidget):
         self._pack_name = QLineEdit(self)
         self._pack_pick = QPushButton(self)
         self._pack_build = QPushButton(self)
+        self._pack_delete = QPushButton(self)
         avatar_form = QFormLayout()
         self._lbl_avatar = QLabel(self)
         self._lbl_pack_photo = QLabel(self)
@@ -156,6 +158,7 @@ class SettingsWindow(QWidget):
         avatar_form.addRow(self._lbl_pack_name, self._pack_name)
         avatar_form.addRow("", self._pack_pick)
         avatar_form.addRow("", self._pack_build)
+        avatar_form.addRow("", self._pack_delete)
         avatar_box = QGroupBox(self)
         avatar_box.setLayout(avatar_form)
 
@@ -181,6 +184,7 @@ class SettingsWindow(QWidget):
 
         self._pack_pick.clicked.connect(self._pick_photo)
         self._pack_build.clicked.connect(self._build_pack)
+        self._pack_delete.clicked.connect(self._delete_pack)
         self._pack_build.setEnabled(False)
         self._pack_path.textChanged.connect(self._update_build_enabled)
         self._pack_name.textChanged.connect(self._update_build_enabled)
@@ -201,6 +205,7 @@ class SettingsWindow(QWidget):
         self._close_btn.setText(t("settings.close"))
         self._pack_pick.setText(t("settings.pack_pick"))
         self._pack_build.setText(t("settings.pack_build"))
+        self._pack_delete.setText(t("settings.pack_delete"))
         self._pack_name.setPlaceholderText(t("settings.pack_name"))
         self._lbl_lang.setText(t("settings.lang"))
         self._lbl_theme.setText(t("settings.theme"))
@@ -349,6 +354,43 @@ class SettingsWindow(QWidget):
                 self._avatar.setCurrentIndex(idx)
         finally:
             self.unsetCursor()
+
+    def _delete_pack(self) -> None:
+        name = self._avatar.currentText().strip()
+        if not name:
+            return
+        if name == "base":
+            self._status.setText(i18n.t("settings.pack_delete_builtin"))
+            return
+        answer = QMessageBox.question(
+            self,
+            i18n.t("settings.pack_delete"),
+            i18n.t("settings.pack_delete_confirm", name=name),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        from core.paths import assets_dir
+
+        try:
+            delete_pack(assets_dir() / "avatars", name)
+        except PackError as exc:
+            msg = (
+                i18n.t("settings.pack_delete_builtin")
+                if "built-in" in str(exc)
+                else i18n.t("settings.pack_delete_failed", name=name)
+            )
+            self._status.setText(msg)
+            return
+        self._status.setText(i18n.t("settings.pack_deleted", name=name))
+        current = self._avatar.currentText()
+        self._avatar.clear()
+        self._avatar.addItems(self._list_avatars())
+        if current == name:
+            idx = self._avatar.findText("base")
+            if idx >= 0:
+                self._avatar.setCurrentIndex(idx)
 
     def closeEvent(self, event: QCloseEvent) -> None:
         self.hide()

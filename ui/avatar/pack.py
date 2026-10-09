@@ -26,6 +26,9 @@ class PackError(ValueError):
     pass
 
 
+BUILTIN_PACK = "base"
+
+
 def sanitize_pack_name(name: str) -> str:
     cleaned = re.sub(r"[^a-z0-9]+", "_", name.strip().lower()).strip("_")
     cleaned = re.sub(r"_+", "_", cleaned)
@@ -172,3 +175,27 @@ def build_pack(source_image: Path, out_dir: Path, name: str) -> Path:
     except BaseException:
         shutil.rmtree(tmp_dir, ignore_errors=True)
         raise
+
+
+def delete_pack(avatars_root: Path, name: str) -> None:
+    """Delete an avatar pack directory under avatars_root.
+
+    Safety rails: never deletes the built-in 'base' pack, rejects path
+    traversal, and only removes directories that look like real packs
+    (contain manifest.json).
+    """
+    import shutil
+
+    if name == BUILTIN_PACK:
+        raise PackError("built-in pack cannot be deleted")
+    if not name or name in (".", "..") or "/" in name or "\\" in name:
+        raise PackError(f"invalid pack name: {name!r}")
+    root = avatars_root.resolve()
+    target = (avatars_root / name).resolve()
+    if root not in target.parents:
+        raise PackError(f"invalid pack name: {name!r}")
+    if not target.is_dir():
+        raise PackError(f"not found: {name}")
+    if not (target / "manifest.json").is_file():
+        raise PackError(f"not a pack: {name}")
+    shutil.rmtree(target)

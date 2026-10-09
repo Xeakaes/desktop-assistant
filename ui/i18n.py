@@ -48,6 +48,20 @@ STRINGS: dict[str, dict[str, str]] = {
     "settings.pack_pick": {"tr": "Fotoğraf seç…", "en": "Choose photo…"},
     "settings.pack_name": {"tr": "Paket adı", "en": "Pack name"},
     "settings.pack_build": {"tr": "Paketi oluştur", "en": "Build pack"},
+    "settings.pack_delete": {"tr": "Paketi sil", "en": "Delete pack"},
+    "settings.pack_deleted": {"tr": "Paket silindi: {name}", "en": "Pack deleted: {name}"},
+    "settings.pack_delete_confirm": {
+        "tr": "'{name}' paketi kalıcı olarak silinsin mi?",
+        "en": "Permanently delete the '{name}' pack?",
+    },
+    "settings.pack_delete_failed": {
+        "tr": "Paket silinemedi: {name}",
+        "en": "Could not delete pack: {name}",
+    },
+    "settings.pack_delete_builtin": {
+        "tr": "Dahili 'base' paketi silinemez.",
+        "en": "The built-in 'base' pack cannot be deleted.",
+    },
     "settings.pack_success": {"tr": "Paket oluşturuldu: {name}", "en": "Pack created: {name}"},
     "settings.pack_exists": {"tr": "Bu isim zaten var: {name}", "en": "Name already exists: {name}"},
     "settings.pack_bad_image": {"tr": "Geçersiz veya bozuk görsel.", "en": "Invalid or corrupt image."},
