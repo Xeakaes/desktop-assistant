@@ -303,11 +303,15 @@ class ChatWindow(QMainWindow):
         self._history.append(self._session_id, "user", text)
         self._reload_sessions()
         self._set_busy(True)
-        threading.Thread(target=self._run_agent, args=(text,), daemon=True).start()
+        # snapshot: switching chats mid-task must not rebind the running task
+        session_id = self._session_id
+        threading.Thread(
+            target=self._run_agent, args=(text, session_id), daemon=True
+        ).start()
 
-    def _run_agent(self, text: str) -> None:
+    def _run_agent(self, text: str, session_id: str) -> None:
         try:
-            tid = self._runtime.begin_task(self._session_id, text)
+            tid = self._runtime.begin_task(session_id, text)
             self._runtime.run_task(tid)
         except Exception as exc:
             self._signals.error.emit(str(exc))
@@ -343,6 +347,19 @@ class ChatWindow(QMainWindow):
             self._activity.setText(
                 i18n.t("confirmation.pending") + f" {payload.get('tool_name', '?')}"
             )
+            from ui.confirmation import ask_confirmation
+
+            approved = ask_confirmation(
+                self,
+                payload.get("tool_name", "?"),
+                payload.get("question", ""),
+                payload.get("arguments") or {},
+            )
+            if self._runtime is not None:
+                self._runtime.resolve_confirmation(
+                    event.task_id, payload.get("confirm_id", ""), approved
+                )
+            self._activity.setText("")
 
     def _on_assistant(self, text: str) -> None:
         self._append("assistant", text)

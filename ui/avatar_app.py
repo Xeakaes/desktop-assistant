@@ -26,7 +26,6 @@ from ui.prefs import load_prefs, restart_into
 from ui.settings import SettingsWindow
 from ui.theme import apply_theme
 
-SID = "m1"
 from core.paths import assets_dir
 
 ASSETS = assets_dir() / "avatars"
@@ -44,6 +43,7 @@ class App:
         self.runtime, self.bus, self.session = build_runtime()
         self._settings_cache = load_settings(self.settings_path)
         self._history = HistoryStore(default_db_path())
+        self._sid = self._history.create_session()
         avatar_name = self._settings_cache.get("avatar", "base")
         self.avatar = self._make_avatar(avatar_name)
         self.bubble = BubbleWindow(on_send=self._on_send, on_cancel=self._on_cancel)
@@ -77,13 +77,13 @@ class App:
 
     def _on_send(self, text: str) -> None:
         self.bubble.append_message("user", text)
-        self._history.append(SID, "user", text)
+        self._history.append(self._sid, "user", text)
         self.bubble.set_busy(True)
         threading.Thread(target=self._run_agent, args=(text,), daemon=True).start()
 
     def _run_agent(self, text: str) -> None:
         try:
-            tid = self.runtime.begin_task(SID, text)
+            tid = self.runtime.begin_task(self._sid, text)
             self.runtime.run_task(tid)
         except Exception as exc:
             self.signals.finished.emit(f"{i18n.t('chat.error_prefix')}: {exc}")
@@ -106,7 +106,7 @@ class App:
             self.signals.activity.emit(i18n.t("chat.activity_running", name=name))
             line = i18n.t("chat.tool_started_line", name=name)
             self.bubble.append_message("tool", line)
-            self._history.append(SID, "tool", line, tool_name=name)
+            self._history.append(self._sid, "tool", line, tool_name=name)
         elif event.name == "tool_finished":
             self.bubble.set_tool_activity("")
             name = event.payload.get("tool_name", "")
@@ -114,12 +114,12 @@ class App:
             key = "chat.tool_finished_ok" if ok else "chat.tool_finished_fail"
             line = i18n.t(key, name=name)
             self.bubble.append_message("tool", line)
-            self._history.append(SID, "tool", line, tool_name=name)
+            self._history.append(self._sid, "tool", line, tool_name=name)
         elif event.name == "assistant_message":
             text = event.payload.get("text", "")
             if text:
                 self.bubble.append_message("assistant", text)
-                self._history.append(SID, "assistant", text)
+                self._history.append(self._sid, "assistant", text)
         elif event.name == "agent_finished":
             self._on_finished("")
         elif event.name == "agent_error":
@@ -128,16 +128,28 @@ class App:
             code = event.payload.get("error_code", "")
             line = f"{i18n.t('chat.error_prefix')} ({code}): {msg}"
             self.bubble.append_message("assistant", line)
-            self._history.append(SID, "assistant", line)
+            self._history.append(self._sid, "assistant", line)
         elif event.name == "agent_cancelled":
             self._on_finished("")
             line = i18n.t("chat.cancelled")
             self.bubble.append_message("assistant", line)
-            self._history.append(SID, "assistant", line)
+            self._history.append(self._sid, "assistant", line)
         elif event.name == "confirmation_requested":
             self.signals.activity.emit(
                 f"▸ {i18n.t('confirmation.pending')}: {event.payload.get('tool_name', '?')}"
             )
+            from ui.confirmation import ask_confirmation
+
+            approved = ask_confirmation(
+                None,
+                event.payload.get("tool_name", "?"),
+                event.payload.get("question", ""),
+                event.payload.get("arguments") or {},
+            )
+            self.runtime.resolve_confirmation(
+                event.task_id, event.payload.get("confirm_id", ""), approved
+            )
+            self.signals.activity.emit("")
 
     def context_menu(self) -> QMenu:
         menu = QMenu()

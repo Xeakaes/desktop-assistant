@@ -80,9 +80,23 @@ STRINGS: dict[str, dict[str, str]] = {
     "menu.quit": {"tr": "Çıkış", "en": "Quit"},
     "menu.switch_gui": {"tr": "Sohbet'e geç", "en": "Switch to Chat"},
     "confirmation.pending": {
-        "tr": "onay bekleniyor (M2) — İptal'e basın",
-        "en": "awaiting approval (M2) — press Cancel",
+        "tr": "onay bekleniyor",
+        "en": "awaiting approval",
     },
+    "confirmation.title": {
+        "tr": "Araç İzni",
+        "en": "Tool Permission",
+    },
+    "confirmation.question_default": {
+        "tr": "{name} çalıştırılsın mı?",
+        "en": "Run {name}?",
+    },
+    "confirmation.tool_line": {
+        "tr": "Araç: {name}",
+        "en": "Tool: {name}",
+    },
+    "confirmation.allow": {"tr": "İzin Ver", "en": "Allow"},
+    "confirmation.deny": {"tr": "Reddet", "en": "Deny"},
     "chat.tool_started_line": {"tr": "{name} başladı", "en": "{name} started"},
     "chat.tool_finished_ok": {"tr": "{name} bitti (Tamam)", "en": "{name} done (OK)"},
     "chat.tool_finished_fail": {"tr": "{name} bitti (Hata)", "en": "{name} done (Error)"},
