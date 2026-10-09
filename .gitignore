@@ -2,6 +2,7 @@ __pycache__/
 .venv/
 *.pyc
 config/secrets.json
+config/ui.json
 vendor/sc_server/.token
 vendor/sc_server/.apikeys
 vendor/sc_server/logs/
