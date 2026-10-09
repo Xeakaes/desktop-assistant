@@ -21,12 +21,21 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt -r requirements-packaging.txt
       - name: Set version
-        run: echo "APP_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "APP_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          else
+            echo "APP_VERSION=0.0.0-dev.${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+          fi
       - name: Install nfpm
         run: |
           curl -sSL https://github.com/goreleaser/nfpm/releases/download/v2.43.1/nfpm_2.43.1_Linux_x86_64.tar.gz | tar -xz -C /usr/local/bin nfpm
       - name: Build
         run: bash packaging/build_linux.sh
+      - name: Smoke test
+        run: |
+          test -x dist/desktop-assistant/desktop-assistant
+          env -u APP_VERSION dist/desktop-assistant/desktop-assistant --version | grep -Fx "$APP_VERSION"
       - uses: actions/upload-artifact@v4
         with:
           name: linux-packages
@@ -47,10 +56,22 @@ jobs:
           pip install -r requirements.txt -r requirements-packaging.txt
       - name: Set version
         shell: bash
-        run: echo "APP_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "APP_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          else
+            echo "APP_VERSION=0.0.0-dev.${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+          fi
       - name: Build
         shell: bash
-        run: pyinstaller packaging/desktop-assistant.spec --noconfirm --distpath dist --workpath build
+        run: |
+          printf '%s' "$APP_VERSION" > _version.txt
+          pyinstaller packaging/desktop-assistant.spec --noconfirm --distpath dist --workpath build
+      - name: Smoke test
+        shell: bash
+        run: |
+          test -f dist/desktop-assistant/desktop-assistant.exe
+          env -u APP_VERSION dist/desktop-assistant/desktop-assistant.exe --version | grep -Fx "$APP_VERSION"
       - name: Package zip
         shell: pwsh
         run: Compress-Archive -Path dist/desktop-assistant -DestinationPath "dist/desktop-assistant_${env:APP_VERSION}_windows_amd64.zip"

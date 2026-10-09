@@ -188,6 +188,9 @@ class App:
 
 
 def build_ui() -> App:
+    from core.paths import ensure_user_config
+
+    ensure_user_config()
     app = QApplication.instance() or QApplication(sys.argv)
     prefs = load_prefs(ui_json_path())
     i18n.set_language(prefs.lang)

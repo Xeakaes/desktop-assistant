@@ -2,20 +2,17 @@
 
 from __future__ import annotations
 
-import os
 import sqlite3
 import threading
 import time
 import uuid
 from pathlib import Path
 
+from core.paths import data_dir
+
 
 def default_db_path() -> Path:
-    if os.name == "nt":
-        base = Path(os.environ.get("APPDATA", str(Path.home()))) / "desktop-assistant"
-    else:
-        base = Path.home() / ".local" / "share" / "desktop-assistant"
-    return base / "history.db"
+    return data_dir() / "history.db"
 
 
 class HistoryStore:

@@ -94,6 +94,28 @@ def _copy_py(src: Path, dest: Path, extra_patch=None) -> None:
     dest.write_text(text, encoding="utf-8")
 
 
+def _verify_rewrites() -> bool:
+    """Fail loudly if any un-rewritten import survived."""
+    ok = True
+    for f in DEST.rglob("*.py"):
+        text = f.read_text(encoding="utf-8")
+        if re.search(r"^from core[.\s]", text, re.M) or re.search(
+            r"^import core\b", text, re.M
+        ):
+            print(f"REWRITE INCOMPLETE: {f} still imports 'core'", file=sys.stderr)
+            ok = False
+        if re.search(r"^from backends[.\s]", text, re.M) or re.search(
+            r"^import backends\b", text, re.M
+        ):
+            print(f"REWRITE INCOMPLETE: {f} still imports 'backends'", file=sys.stderr)
+            ok = False
+    server = (DEST / "server.py").read_text(encoding="utf-8")
+    if "_DATA_DIR" not in server or "SCREEN_CONTROL_DATA_DIR" not in server:
+        print("REWRITE INCOMPLETE: server.py token path patch missing", file=sys.stderr)
+        ok = False
+    return ok
+
+
 def main() -> int:
     if not UPSTREAM.is_dir():
         print(f"error: upstream not found: {UPSTREAM}", file=sys.stderr)
@@ -120,6 +142,9 @@ def main() -> int:
     # backends -> sc_backends
     for f in (UPSTREAM / "backends").glob("*.py"):
         _copy_py(f, DEST / "sc_backends" / f.name)
+
+    if not _verify_rewrites():
+        return 1
 
     print(f"vendored -> {DEST}")
     return 0

@@ -1,3 +1,4 @@
+import os
 import socket
 import sys
 from pathlib import Path
@@ -5,9 +6,48 @@ from pathlib import Path
 from app_entry import entry
 
 
-def test_version_flag_prints(capsys):
+def test_version_flag_prints(capsys, monkeypatch):
+    monkeypatch.delenv("APP_VERSION", raising=False)
     assert entry.main(["--version"]) == 0
     assert "0.0.0" in capsys.readouterr().out
+
+
+def test_version_reads_bundled_file(capsys, monkeypatch, tmp_path):
+    monkeypatch.delenv("APP_VERSION", raising=False)
+    (tmp_path / "_version.txt").write_text("9.9.9-test")
+    monkeypatch.setattr(entry, "_version_file", lambda: tmp_path / "_version.txt")
+    assert entry.main(["--version"]) == 0
+    assert capsys.readouterr().out.strip() == "9.9.9-test"
+
+
+def test_version_env_wins(capsys, monkeypatch, tmp_path):
+    monkeypatch.setenv("APP_VERSION", "1.2.3")
+    (tmp_path / "_version.txt").write_text("9.9.9")
+    monkeypatch.setattr(entry, "_version_file", lambda: tmp_path / "_version.txt")
+    assert entry.main(["--version"]) == 0
+    assert capsys.readouterr().out.strip() == "1.2.3"
+
+
+def test_serve_sets_data_dir_env(monkeypatch, tmp_path):
+    monkeypatch.delenv("SCREEN_CONTROL_DATA_DIR", raising=False)
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path / "b"), raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setattr(
+        __import__("core.paths", fromlist=["Path"]).Path,
+        "home",
+        classmethod(lambda cls: tmp_path),
+    )
+    captured = {}
+
+    def fake_server_main():
+        captured["env"] = os.environ.get("SCREEN_CONTROL_DATA_DIR")
+
+    import vendor.sc_server.server as sm
+
+    monkeypatch.setattr(sm, "main", fake_server_main)
+    entry.serve_screen_control(["--serve-screen-control"])
+    assert captured["env"] == str(tmp_path / ".config" / "desktop-assistant")
 
 
 def test_spawn_disabled_settings(monkeypatch):
@@ -29,7 +69,7 @@ def test_spawn_skipped_when_port_open(monkeypatch):
     assert entry.maybe_spawn_server({"screen_control": {"enabled": True}}) is None
 
 
-def test_spawn_happens_when_port_closed(monkeypatch, tmp_path):
+def test_spawn_frozen_passes_host_port(monkeypatch, tmp_path):
     def boom(*a, **k):
         raise OSError("closed")
 
@@ -47,27 +87,44 @@ def test_spawn_happens_when_port_closed(monkeypatch, tmp_path):
     monkeypatch.setattr(sys, "frozen", True, raising=False)
     monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path / "bundle"), raising=False)
     monkeypatch.setenv("HOME", str(tmp_path))
-    monkeypatch.setenv("APPDATA", str(tmp_path / "appdata"))
     monkeypatch.setattr(
         __import__("core.paths", fromlist=["Path"]).Path,
         "home",
         classmethod(lambda cls: tmp_path),
     )
-    pid = entry.maybe_spawn_server({"screen_control": {"enabled": True}})
+    pid = entry.maybe_spawn_server(
+        {"screen_control": {"enabled": True, "host": "0.0.0.0", "port": 9001}}
+    )
     assert pid == "4242"
-    assert "--serve-screen-control" in captured["args"][0]
+    cmd = captured["args"][0]
+    assert "--serve-screen-control" in cmd
+    assert "--host" in cmd and "0.0.0.0" in cmd
+    assert "--port" in cmd and "9001" in cmd
     from core.paths import config_dir
 
     assert captured["kwargs"]["env"]["SCREEN_CONTROL_DATA_DIR"] == str(config_dir())
 
 
-def test_serve_flag_dispatches(monkeypatch):
-    seen = {}
+def test_spawn_dev_uses_module_invocation(monkeypatch, tmp_path):
+    def boom(*a, **k):
+        raise OSError("closed")
 
-    def fake_serve(argv):
-        seen["argv"] = argv
-        return 0
+    monkeypatch.setattr(entry.socket, "create_connection", boom)
+    captured = {}
 
-    monkeypatch.setattr(entry, "serve_screen_control", fake_serve)
-    assert entry.main(["--serve-screen-control"]) == 0
-    assert "argv" in seen
+    class P:
+        pid = 777
+
+        def __init__(self, *a, **k):
+            captured["args"] = a
+            captured["kwargs"] = k
+
+    monkeypatch.setattr(entry.subprocess, "Popen", P)
+    monkeypatch.delattr(sys, "frozen", raising=False)
+    monkeypatch.delattr(sys, "_MEIPASS", raising=False)
+    pid = entry.maybe_spawn_server({"screen_control": {"enabled": True, "port": 8745}})
+    assert pid == "777"
+    cmd = captured["args"][0]
+    assert "-m" in cmd and "vendor.sc_server.server" in cmd
+    assert "--port" in cmd and "8745" in cmd
+    assert "--serve-screen-control" not in cmd

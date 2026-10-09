@@ -8,6 +8,7 @@ import sys
 from PySide6.QtWidgets import QApplication
 
 from core.bootstrap import build_runtime
+from core.paths import ensure_user_config
 from ui.bridge import QtBridge
 from ui.chooser import ModeChooser
 from ui.history import HistoryStore, default_db_path
@@ -18,6 +19,7 @@ from ui.theme import apply_theme
 
 
 def main() -> int:
+    ensure_user_config()
     app = QApplication.instance() or QApplication(sys.argv)
     ui_json = ui_json_path()
     prefs = load_prefs(ui_json)

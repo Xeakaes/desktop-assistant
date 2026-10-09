@@ -42,3 +42,36 @@ def data_dir() -> Path:
 
 def assets_dir() -> Path:
     return bundle_root() / "assets"
+
+
+def ensure_user_config() -> None:
+    """Seed config_dir() with defaults on first frozen launch."""
+    import json
+
+    cfg = config_dir()
+    cfg.mkdir(parents=True, exist_ok=True)
+    settings = cfg / "settings.json"
+    if not settings.exists():
+        template = bundle_root() / "config_template" / "settings.json"
+        if template.exists():
+            settings.write_text(template.read_text(encoding="utf-8"), encoding="utf-8")
+        else:
+            settings.write_text(
+                json.dumps(
+                    {
+                        "avatar": "base",
+                        "language": "tr",
+                        "theme": "dark",
+                        "screen_control": {"enabled": True, "host": "127.0.0.1", "port": 8745},
+                    },
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+    secrets = cfg / "secrets.json"
+    if not secrets.exists():
+        secrets.write_text("{}", encoding="utf-8")
+        try:
+            os.chmod(secrets, 0o600)
+        except OSError:
+            pass

@@ -8,3 +8,4 @@ vendor/sc_server/logs/
 dist/
 build/
 *.spec.bak
+_version.txt

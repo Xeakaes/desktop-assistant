@@ -15,6 +15,8 @@ datas = [
     (str(ROOT / "vendor"), "vendor"),
     (str(ROOT / "config" / "settings.json"), "config_template"),
 ]
+if (ROOT / "_version.txt").exists():
+    datas.append((str(ROOT / "_version.txt"), "."))
 
 hiddenimports = [
     "vendor.sc_server.sdk",

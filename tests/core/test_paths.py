@@ -42,3 +42,49 @@ def test_data_dir_creates(monkeypatch, tmp_path):
     assert d.exists() and d.is_dir()
     if os.name != "nt":
         assert d == tmp_path / ".local" / "share" / "desktop-assistant"
+
+
+def test_ensure_user_config_seeds_from_template(monkeypatch, tmp_path):
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path / "bundle"), raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("APPDATA", str(tmp_path / "appdata"))
+    monkeypatch.setattr(paths.Path, "home", classmethod(lambda cls: tmp_path))
+    tpl = tmp_path / "bundle" / "config_template"
+    tpl.mkdir(parents=True)
+    (tpl / "settings.json").write_text('{"provider": {"type": "groq"}}', encoding="utf-8")
+    paths.ensure_user_config()
+    cfg = paths.config_dir()
+    settings = cfg / "settings.json"
+    assert settings.exists()
+    assert "groq" in settings.read_text(encoding="utf-8")
+    secrets = cfg / "secrets.json"
+    assert secrets.exists()
+    if os.name != "nt":
+        assert secrets.stat().st_mode & 0o777 == 0o600
+
+
+def test_ensure_user_config_writes_defaults_without_template(monkeypatch, tmp_path):
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path / "empty-bundle"), raising=False)
+    (tmp_path / "empty-bundle").mkdir()
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("APPDATA", str(tmp_path / "appdata"))
+    monkeypatch.setattr(paths.Path, "home", classmethod(lambda cls: tmp_path))
+    paths.ensure_user_config()
+    settings = paths.config_dir() / "settings.json"
+    assert settings.exists()
+    assert "screen_control" in settings.read_text(encoding="utf-8")
+
+
+def test_ensure_user_config_noop_when_exists(monkeypatch, tmp_path):
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path / "b"), raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("APPDATA", str(tmp_path / "appdata"))
+    monkeypatch.setattr(paths.Path, "home", classmethod(lambda cls: tmp_path))
+    cfg = paths.config_dir()
+    cfg.mkdir(parents=True)
+    (cfg / "settings.json").write_text('{"keep": true}', encoding="utf-8")
+    paths.ensure_user_config()
+    assert (cfg / "settings.json").read_text(encoding="utf-8") == '{"keep": true}'

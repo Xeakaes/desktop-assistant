@@ -1,5 +1,89 @@
 # Desktop Assistant
 
+Desktop AI assistant — chat GUI, avatar mode, and built-in screen-control tools.
+
+## Features
+
+- **Chat (GUI) mode** — Ollama-style chat interface, tool calling, SQLite history
+- **Avatar mode** — pixel-art avatar, speech bubble, state animations (idle/thinking/working/speaking/error)
+- **Mode selection** — chosen on first launch; persisted to `config/ui.json`; switchable from the menu (via restart)
+- **Theme** — dark / light; instant switch
+- **Language** — Turkish / English; instant switch
+- **Screen control** — screenshot, OCR, mouse/keyboard, window management; the server ships embedded in the package, no separate install required
+
+## Installation
+
+### Linux (`.deb`)
+
+```bash
+sudo dpkg -i desktop-assistant_<version>_amd64.deb
+```
+
+### Linux (portable tar.gz)
+
+```bash
+tar -xzf desktop-assistant_<version>_linux_amd64.tar.gz
+./desktop-assistant/desktop-assistant
+```
+
+### Windows (`.zip`)
+
+Extract `desktop-assistant_<version>_windows_amd64.zip` and run `desktop-assistant.exe`.
+
+## First Run
+
+On first launch the app offers a mode choice (Chat GUI / Avatar). The selection is written to `config/ui.json` and can be changed from the right-click menu or the GUI sidebar.
+
+Provider (Groq, NVIDIA, Google, Ollama, …) and API keys are configured in the **Settings** window.
+
+## Configuration Locations
+
+When running from the source tree (development):
+
+| File | Location |
+|---|---|
+| Settings | `config/settings.json` |
+| Secret keys | `config/secrets.json` (0600) |
+| UI preferences | `config/ui.json` |
+| History | `~/.local/share/desktop-assistant/history.db` |
+
+In a packaged (frozen) build, settings move to the user config directory:
+
+| OS | Location |
+|---|---|
+| Linux | `~/.config/desktop-assistant/` |
+| Windows | `%APPDATA%\desktop-assistant\` |
+
+`config/secrets.json` is never included in the package or the repository.
+
+## Building from Source
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt -r requirements-packaging.txt
+.venv/bin/pytest tests -q          # run all tests
+.venv/bin/python -m ui.app         # launch the app
+```
+
+### Packaging (Linux)
+
+```bash
+bash packaging/build_linux.sh      # PyInstaller + tar.gz + deb (requires nfpm)
+```
+
+### Screen Control
+
+The screen-control client and server are embedded under `vendor/sc_server/`. When screen control is enabled and port 8745 is free, the app spawns itself as a subprocess with the `--serve-screen-control` flag. Tokens and API keys are stored in the user configuration directory.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+---
+---
+
+# Masaüstü Asistan (Türkçe)
+
 Masaüstü AI asistanı — sohbet GUI'si, avatar modu ve yerleşik ekran kontrolü araçları.
 
 ## Özellikler
