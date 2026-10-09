@@ -1,0 +1,79 @@
+# -*- mode: python ; coding: utf-8 -*-
+"""PyInstaller onedir spec — shared by local build and CI (linux/windows)."""
+
+import os
+import sys
+from pathlib import Path
+
+block_cipher = None
+ROOT = Path(SPECPATH).resolve().parent
+
+app_version = os.environ.get("APP_VERSION", "0.0.0")
+
+datas = [
+    (str(ROOT / "assets"), "assets"),
+    (str(ROOT / "vendor"), "vendor"),
+    (str(ROOT / "config" / "settings.json"), "config_template"),
+]
+
+hiddenimports = [
+    "vendor.sc_server.sdk",
+    "vendor.sc_server.server",
+    "vendor.sc_server.sc_core.backends",
+    "vendor.sc_server.sc_core.errors",
+    "vendor.sc_server.sc_backends.imageops",
+    "vendor.sc_server.sc_backends.forbidden",
+    "vendor.sc_server.sc_backends.uinput",
+    "flask",
+    "mss",
+    "pyautogui",
+    "PIL",
+    "numpy",
+    "requests",
+]
+
+if sys.platform.startswith("linux"):
+    hiddenimports += ["evdev", "vendor.sc_server.sc_backends.linux"]
+elif sys.platform == "win32":
+    hiddenimports += ["pyvda", "vendor.sc_server.sc_backends.windows"]
+elif sys.platform == "darwin":
+    hiddenimports.append("vendor.sc_server.sc_backends.macos")
+
+a = Analysis(
+    [str(ROOT / "app_entry" / "entry.py")],
+    pathex=[str(ROOT)],
+    binaries=[],
+    datas=datas,
+    hiddenimports=hiddenimports,
+    hookspath=[],
+    runtime_hooks=[],
+    excludes=["tkinter", "pytest"],
+    cipher=block_cipher,
+    noarchive=False,
+)
+
+pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+
+exe = EXE(
+    pyz,
+    a.scripts,
+    [],
+    exclude_binaries=True,
+    name="desktop-assistant",
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=False,
+    console=False,
+    icon=str(ROOT / "packaging" / "icon.png") if (ROOT / "packaging" / "icon.png").exists() else None,
+)
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    strip=False,
+    upx=False,
+    name="desktop-assistant",
+)
