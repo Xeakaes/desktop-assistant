@@ -112,6 +112,7 @@ class I18n:
         if lang not in LANGUAGES:
             raise ValueError(f"unknown language: {lang}")
         self._lang = lang
+        language_bridge.changed.emit(lang)
 
     def t(self, key: str, **fmt: Any) -> str:
         try:
@@ -126,4 +127,12 @@ class I18n:
         return text
 
 
+from PySide6.QtCore import QObject, Signal
+
+
+class _LanguageBridge(QObject):
+    changed = Signal(str)
+
+
+language_bridge = _LanguageBridge()
 i18n = I18n("tr")

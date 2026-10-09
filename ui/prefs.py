@@ -40,9 +40,23 @@ def load_prefs(path: Path) -> UiPrefs:
 
 
 def save_prefs(path: Path, prefs: UiPrefs) -> None:
+    import os
+    import tempfile
+
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {"mode": prefs.mode, "theme": prefs.theme, "lang": prefs.lang}
-    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    data = json.dumps(payload, indent=2).encode("utf-8")
+    fd, tmp = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(data)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 
 def switch_mode(path: Path, mode: str) -> None:

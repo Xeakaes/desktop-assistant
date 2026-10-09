@@ -129,36 +129,46 @@ def build_pack(source_image: Path, out_dir: Path, name: str) -> Path:
         img.load()
     except Exception as exc:
         raise PackError(f"bad image: {exc}") from exc
-    frames_dir = out_dir / "frames"
-    frames_dir.mkdir(parents=True, exist_ok=True)
-    try:
-        base = keep_largest_component(strip_background(img))
-        base = crop_pad_resize(base)
-    except PackError:
-        raise
-    except Exception as exc:
-        raise PackError(f"pipeline failed: {exc}") from exc
+    # Build into a temp sibling, rename on success — no partial pack left on failure.
+    import shutil
+    import uuid
 
-    manifest: dict = {"name": name, "states": {}}
-    for state, cfg in STATE_TRANSFORMS.items():
-        n = max(
-            len(cfg.get("dx") or [0]),
-            len(cfg.get("dy") or [0]),
-            len(cfg.get("tint") or [False]),
-        )
-        rels = []
-        for i in range(n):
-            dx = (cfg.get("dx") or [0] * n)[i]
-            dy = (cfg.get("dy") or [0] * n)[i]
-            tint = (cfg.get("tint") or [False] * n)[i]
-            frame = transform(base, dx=dx, dy=dy, tint=tint)
-            rel = f"frames/{state}_{i:02d}.png"
-            frame.save(out_dir / rel)
-            rels.append(rel)
-        manifest["states"][state] = {
-            "frames": rels,
-            "fps": cfg["fps"],
-            "loop": cfg["loop"],
-        }
-    (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=2))
-    return out_dir
+    tmp_dir = out_dir.parent / f".{out_dir.name}.tmp-{uuid.uuid4().hex[:8]}"
+    try:
+        frames_dir = tmp_dir / "frames"
+        frames_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            base = keep_largest_component(strip_background(img))
+            base = crop_pad_resize(base)
+        except PackError:
+            raise
+        except Exception as exc:
+            raise PackError(f"pipeline failed: {exc}") from exc
+
+        manifest: dict = {"name": name, "states": {}}
+        for state, cfg in STATE_TRANSFORMS.items():
+            n = max(
+                len(cfg.get("dx") or [0]),
+                len(cfg.get("dy") or [0]),
+                len(cfg.get("tint") or [False]),
+            )
+            rels = []
+            for i in range(n):
+                dx = (cfg.get("dx") or [0] * n)[i]
+                dy = (cfg.get("dy") or [0] * n)[i]
+                tint = (cfg.get("tint") or [False] * n)[i]
+                frame = transform(base, dx=dx, dy=dy, tint=tint)
+                rel = f"frames/{state}_{i:02d}.png"
+                frame.save(tmp_dir / rel)
+                rels.append(rel)
+            manifest["states"][state] = {
+                "frames": rels,
+                "fps": cfg["fps"],
+                "loop": cfg["loop"],
+            }
+        (tmp_dir / "manifest.json").write_text(json.dumps(manifest, indent=2))
+        tmp_dir.rename(out_dir)
+        return out_dir
+    except BaseException:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        raise

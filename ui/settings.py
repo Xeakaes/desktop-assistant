@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
 from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal
@@ -12,6 +13,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QFileDialog,
     QFormLayout,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -22,9 +24,9 @@ from PySide6.QtWidgets import (
 )
 
 from ui.avatar.pack import PackError, build_pack, sanitize_pack_name
-from ui.i18n import i18n
+from ui.i18n import i18n, language_bridge
+from ui.paths import SECRETS_PATH, SETTINGS_PATH, ui_json_path
 from ui.prefs import THEMES, load_prefs, save_prefs, UiPrefs
-from ui.theme import REQUIRED_OBJECTNAMES  # noqa: F401  (theme presence check)
 
 PROVIDER_TYPES = ["ollama", "openai_compat", "nvidia", "groq", "google", "nararouter"]
 PERMISSION_LEVELS = ["allow", "ask", "deny"]
@@ -58,96 +60,139 @@ class SettingsWindow(QWidget):
 
     def __init__(
         self,
-        settings_path: Path,
-        secrets_path: Path,
-        ui_json_path: Path | None = None,
+        settings_path: Path | None = None,
+        secrets_path: Path | None = None,
+        ui_json: Path | None = None,
         parent=None,
     ) -> None:
         super().__init__(parent)
         self.setObjectName("settings_win")
         self.setMinimumWidth(460)
-        self._settings_path = settings_path
-        self._secrets_path = secrets_path
-        self._ui_json_path = ui_json_path or (
-            settings_path.parent / "ui.json"
-        )
+        self._settings_path = settings_path or SETTINGS_PATH
+        self._secrets_path = secrets_path or SECRETS_PATH
+        self._ui_json = ui_json or ui_json_path()
         self.setAttribute(Qt.WidgetAttribute.WA_QuitOnClose, False)
 
+        # --- general section ---
         self._lang = QComboBox(self)
         self._lang.addItems(["tr", "en"])
         self._theme = QComboBox(self)
         self._theme.addItems(list(THEMES))
         self._mode = QComboBox(self)
         self._mode.addItems(["gui", "avatar"])
+        general_form = QFormLayout()
+        self._lbl_lang = QLabel(self)
+        self._lbl_theme = QLabel(self)
+        self._lbl_mode = QLabel(self)
+        general_form.addRow(self._lbl_lang, self._lang)
+        general_form.addRow(self._lbl_theme, self._theme)
+        general_form.addRow(self._lbl_mode, self._mode)
+        general_box = QGroupBox(self)
+        general_box.setLayout(general_form)
 
+        # --- provider section ---
         self._provider_type = QComboBox(self)
         self._provider_type.addItems(PROVIDER_TYPES)
         self._provider_url = QLineEdit(self)
         self._provider_model = QLineEdit(self)
         self._provider_key = QLineEdit(self)
         self._provider_key.setEchoMode(QLineEdit.EchoMode.Password)
+        provider_form = QFormLayout()
+        self._lbl_provider_type = QLabel(self)
+        self._lbl_provider_url = QLabel(self)
+        self._lbl_provider_model = QLabel(self)
+        self._lbl_provider_key = QLabel(self)
+        provider_form.addRow(self._lbl_provider_type, self._provider_type)
+        provider_form.addRow(self._lbl_provider_url, self._provider_url)
+        provider_form.addRow(self._lbl_provider_model, self._provider_model)
+        provider_form.addRow(self._lbl_provider_key, self._provider_key)
+        provider_box = QGroupBox(self)
+        provider_box.setLayout(provider_form)
+
+        # --- screen control section ---
         self._sc_host = QLineEdit(self)
         self._sc_port = QSpinBox(self)
         self._sc_port.setRange(1, 65535)
         self._sc_key = QLineEdit(self)
         self._sc_key.setEchoMode(QLineEdit.EchoMode.Password)
+        sc_form = QFormLayout()
+        self._lbl_sc_host = QLabel(self)
+        self._lbl_sc_port = QLabel(self)
+        self._lbl_sc_key = QLabel(self)
+        sc_form.addRow(self._lbl_sc_host, self._sc_host)
+        sc_form.addRow(self._lbl_sc_port, self._sc_port)
+        sc_form.addRow(self._lbl_sc_key, self._sc_key)
+        sc_box = QGroupBox(self)
+        sc_box.setLayout(sc_form)
+
+        # --- permissions section ---
         self._perm_default = QComboBox(self)
         self._perm_default.addItems(PERMISSION_LEVELS)
         self._perm_tools = {}
+        perm_form = QFormLayout()
+        self._lbl_perm_default = QLabel(self)
+        perm_form.addRow(self._lbl_perm_default, self._perm_default)
+        for tool in KNOWN_TOOLS:
+            combo = QComboBox(self)
+            combo.addItems(PERMISSION_LEVELS)
+            self._perm_tools[tool] = combo
+            lbl = QLabel(tool, self)
+            perm_form.addRow(lbl, combo)
+        perm_box = QGroupBox(self)
+        perm_box.setLayout(perm_form)
+
+        # --- avatar section ---
         self._avatar = QComboBox(self)
         self._pack_path = QLineEdit(self)
         self._pack_name = QLineEdit(self)
         self._pack_pick = QPushButton(self)
         self._pack_build = QPushButton(self)
-
-        form = QFormLayout()
-        form.addRow("Dil", self._lang)
-        form.addRow("Tema", self._theme)
-        form.addRow("Mod", self._mode)
-        form.addRow("Sağlayıcı", self._provider_type)
-        form.addRow("URL", self._provider_url)
-        form.addRow("Model", self._provider_model)
-        form.addRow("API anahtarı", self._provider_key)
-        form.addRow("SC host", self._sc_host)
-        form.addRow("SC port", self._sc_port)
-        form.addRow("SC anahtarı", self._sc_key)
-        form.addRow("İzin (*)", self._perm_default)
-        for tool in KNOWN_TOOLS:
-            combo = QComboBox(self)
-            combo.addItems(PERMISSION_LEVELS)
-            self._perm_tools[tool] = combo
-            form.addRow(f"İzin ({tool})", combo)
-        form.addRow("Avatar", self._avatar)
-        form.addRow("Fotoğraf", self._pack_path)
-        form.addRow("Paket adı", self._pack_name)
-        form.addRow("", self._pack_pick)
-        form.addRow("", self._pack_build)
+        avatar_form = QFormLayout()
+        self._lbl_avatar = QLabel(self)
+        self._lbl_pack_photo = QLabel(self)
+        self._lbl_pack_name = QLabel(self)
+        avatar_form.addRow(self._lbl_avatar, self._avatar)
+        avatar_form.addRow(self._lbl_pack_photo, self._pack_path)
+        avatar_form.addRow(self._lbl_pack_name, self._pack_name)
+        avatar_form.addRow("", self._pack_pick)
+        avatar_form.addRow("", self._pack_build)
+        avatar_box = QGroupBox(self)
+        avatar_box.setLayout(avatar_form)
 
         self._status = QLabel("", self)
         self._status.setObjectName("muted")
-        save_btn = QPushButton(self)
-        save_btn.clicked.connect(self.save)
-        close_btn = QPushButton(self)
-        close_btn.clicked.connect(self.close)
+        self._save_btn = QPushButton(self)
+        self._save_btn.clicked.connect(self.save)
+        self._close_btn = QPushButton(self)
+        self._close_btn.clicked.connect(self.close)
         buttons = QHBoxLayout()
-        buttons.addWidget(save_btn)
-        buttons.addWidget(close_btn)
+        buttons.addWidget(self._save_btn)
+        buttons.addWidget(self._close_btn)
         buttons.addStretch(1)
 
         layout = QVBoxLayout(self)
-        layout.addLayout(form)
+        layout.addWidget(general_box)
+        layout.addWidget(provider_box)
+        layout.addWidget(sc_box)
+        layout.addWidget(perm_box)
+        layout.addWidget(avatar_box)
         layout.addWidget(self._status)
         layout.addLayout(buttons)
 
-        self._save_btn = save_btn
-        self._close_btn = close_btn
-        self._form_labels = []  # filled lazily via retranslate store
-
         self._pack_pick.clicked.connect(self._pick_photo)
         self._pack_build.clicked.connect(self._build_pack)
+        self._pack_build.setEnabled(False)
+        self._pack_path.textChanged.connect(self._update_build_enabled)
+        self._pack_name.textChanged.connect(self._update_build_enabled)
+
+        language_bridge.changed.connect(self._on_language_changed)
 
         self.load()
         self.retranslate()
+
+    def _on_language_changed(self, lang: str) -> None:
+        self.retranslate()
+        self.language_changed.emit(lang)
 
     def retranslate(self) -> None:
         t = i18n.t
@@ -157,18 +202,31 @@ class SettingsWindow(QWidget):
         self._pack_pick.setText(t("settings.pack_pick"))
         self._pack_build.setText(t("settings.pack_build"))
         self._pack_name.setPlaceholderText(t("settings.pack_name"))
-        # combo item texts (order matches indices)
+        self._lbl_lang.setText(t("settings.lang"))
+        self._lbl_theme.setText(t("settings.theme"))
+        self._lbl_mode.setText(t("settings.mode"))
+        self._lbl_provider_type.setText(t("settings.provider_type"))
+        self._lbl_provider_url.setText(t("settings.provider_url"))
+        self._lbl_provider_model.setText(t("settings.provider_model"))
+        self._lbl_provider_key.setText(t("settings.provider_key"))
+        self._lbl_sc_host.setText(t("settings.sc_host"))
+        self._lbl_sc_port.setText(t("settings.sc_port"))
+        self._lbl_sc_key.setText(t("settings.sc_key"))
+        self._lbl_perm_default.setText(t("settings.perm_default"))
+        self._lbl_avatar.setText(t("settings.section_avatar"))
+        self._lbl_pack_photo.setText(t("settings.pack_pick"))
+        self._lbl_pack_name.setText(t("settings.pack_name"))
         self._lang.setItemText(0, t("settings.lang_tr"))
         self._lang.setItemText(1, t("settings.lang_en"))
         self._theme.setItemText(0, t("settings.theme_dark"))
         self._theme.setItemText(1, t("settings.theme_light"))
-        self._mode.setItemText(0, t("settings.mode") + ": GUI")
-        self._mode.setItemText(1, t("settings.mode") + ": Avatar")
+        self._mode.setItemText(0, "GUI")
+        self._mode.setItemText(1, t("mode.avatar"))
 
     def load(self) -> None:
         settings = self._read(self._settings_path)
         secrets = self._read(self._secrets_path)
-        prefs = load_prefs(self._ui_json_path)
+        prefs = load_prefs(self._ui_json)
         self._lang.setCurrentIndex(0 if prefs.lang == "tr" else 1)
         self._theme.setCurrentIndex(list(THEMES).index(prefs.theme))
         self._mode.setCurrentIndex(0 if (prefs.mode or "gui") == "gui" else 1)
@@ -199,6 +257,13 @@ class SettingsWindow(QWidget):
     def save(self) -> None:
         settings = self._read(self._settings_path)
         secrets = self._read(self._secrets_path)
+        # Never overwrite an unreadable secrets file with an empty dict (would wipe keys).
+        if self._secrets_path.exists():
+            try:
+                json.loads(self._secrets_path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                self._status.setText(i18n.t("settings.pack_bad_image"))
+                return
         ptype = self._provider_type.currentText()
         provider = {"type": ptype, "model": self._provider_model.text().strip()}
         url = self._provider_url.text().strip()
@@ -226,8 +291,8 @@ class SettingsWindow(QWidget):
         lang = "tr" if self._lang.currentIndex() == 0 else "en"
         theme = self._theme.currentText()
         mode = "gui" if self._mode.currentIndex() == 0 else "avatar"
-        old = load_prefs(self._ui_json_path)
-        save_prefs(self._ui_json_path, UiPrefs(mode=mode, theme=theme, lang=lang))
+        old = load_prefs(self._ui_json)
+        save_prefs(self._ui_json, UiPrefs(mode=mode, theme=theme, lang=lang))
         if lang != i18n.current:
             i18n.set_language(lang)
             self.language_changed.emit(lang)
@@ -236,9 +301,13 @@ class SettingsWindow(QWidget):
             self.theme_changed.emit(theme)
         self._status.setText(i18n.t("settings.save_restart_note"))
 
+    def _update_build_enabled(self, *_a) -> None:
+        ok = bool(self._pack_path.text().strip()) and bool(self._pack_name.text().strip())
+        self._pack_build.setEnabled(ok)
+
     def _pick_photo(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, "Fotoğraf", str(Path.home()), "Images (*.png *.jpg *.jpeg)"
+            self, i18n.t("settings.pack_pick"), str(Path.home()), "Images (*.png *.jpg *.jpeg)"
         )
         if path:
             self._pack_path.setText(path)
@@ -301,10 +370,17 @@ class SettingsWindow(QWidget):
     @staticmethod
     def _write(path: Path, data: dict, mode=None) -> None:
         payload = json.dumps(data, indent=2).encode("utf-8")
-        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, mode if mode is not None else 0o644)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
         try:
-            os.write(fd, payload)
-        finally:
-            os.close(fd)
-        if mode is not None:
-            os.chmod(path, mode)
+            with os.fdopen(fd, "wb") as f:
+                f.write(payload)
+            os.replace(tmp, path)
+            if mode is not None:
+                os.chmod(path, mode)
+        except BaseException:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+            raise

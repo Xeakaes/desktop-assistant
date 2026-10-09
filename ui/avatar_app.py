@@ -13,13 +13,18 @@ from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QApplication, QMessageBox, QMenu
 
-from core.bootstrap import DEFAULT_SECRETS, DEFAULT_SETTINGS, build_runtime
+from core.bootstrap import build_runtime
 from core.config import load_settings
 from ui.avatar.state_machine import reduce_event
 from ui.avatar.window import AvatarWindow
 from ui.bridge import QtBridge
 from ui.bubble import BubbleWindow
+from ui.history import HistoryStore, default_db_path
+from ui.i18n import i18n
+from ui.paths import SECRETS_PATH, SETTINGS_PATH, ui_json_path
+from ui.prefs import load_prefs, restart_into
 from ui.settings import SettingsWindow
+from ui.theme import apply_theme
 
 SID = "m1"
 ASSETS = Path(__file__).resolve().parent.parent / "assets" / "avatars"
@@ -32,10 +37,11 @@ class _UiSignals(QObject):
 
 class App:
     def __init__(self) -> None:
-        self.settings_path = DEFAULT_SETTINGS
-        self.secrets_path = DEFAULT_SECRETS
+        self.settings_path = SETTINGS_PATH
+        self.secrets_path = SECRETS_PATH
         self.runtime, self.bus, self.session = build_runtime()
         self._settings_cache = load_settings(self.settings_path)
+        self._history = HistoryStore(default_db_path())
         avatar_name = self._settings_cache.get("avatar", "base")
         self.avatar = self._make_avatar(avatar_name)
         self.bubble = BubbleWindow(on_send=self._on_send, on_cancel=self._on_cancel)
@@ -57,12 +63,13 @@ class App:
             return AvatarWindow(ASSETS / name, context_menu_factory=self.context_menu)
         except Exception:
             if name != "base":
-                self._pending_avatar_note = f"Avatar '{name}' bozuk — 'base' kullanılıyor"
+                self._pending_avatar_note = i18n.t("chat.avatar_fallback", name=name)
                 return AvatarWindow(ASSETS / "base", context_menu_factory=self.context_menu)
             raise
 
     def _on_send(self, text: str) -> None:
         self.bubble.append_message("user", text)
+        self._history.append(SID, "user", text)
         self.bubble.set_busy(True)
         threading.Thread(target=self._run_agent, args=(text,), daemon=True).start()
 
@@ -71,7 +78,7 @@ class App:
             tid = self.runtime.begin_task(SID, text)
             self.runtime.run_task(tid)
         except Exception as exc:
-            self.signals.finished.emit(f"Hata: {exc}")
+            self.signals.finished.emit(f"{i18n.t('chat.error_prefix')}: {exc}")
 
     def _on_finished(self, final: str) -> None:
         self.bubble.set_busy(False)
@@ -88,49 +95,56 @@ class App:
             self.bubble.set_busy(True)
         elif event.name == "tool_started":
             name = event.payload.get("tool_name", "")
-            self.signals.activity.emit(f"▸ {name} çalışıyor…")
-            self.bubble.append_message("tool", f"{name} başladı")
+            self.signals.activity.emit(i18n.t("chat.activity_running", name=name))
+            line = i18n.t("chat.tool_started_line", name=name)
+            self.bubble.append_message("tool", line)
+            self._history.append(SID, "tool", line, tool_name=name)
         elif event.name == "tool_finished":
             self.bubble.set_tool_activity("")
             name = event.payload.get("tool_name", "")
             ok = event.payload.get("ok", "")
-            self.bubble.append_message(
-                "tool", f"{name} bitti ({'Tamam' if ok else 'Hata'})"
-            )
+            key = "chat.tool_finished_ok" if ok else "chat.tool_finished_fail"
+            line = i18n.t(key, name=name)
+            self.bubble.append_message("tool", line)
+            self._history.append(SID, "tool", line, tool_name=name)
         elif event.name == "assistant_message":
             text = event.payload.get("text", "")
             if text:
                 self.bubble.append_message("assistant", text)
+                self._history.append(SID, "assistant", text)
         elif event.name == "agent_finished":
             self._on_finished("")
         elif event.name == "agent_error":
             self._on_finished("")
-            msg = event.payload.get("message") or event.payload.get("error_code", "hata")
+            msg = event.payload.get("message") or event.payload.get("error_code", "")
             code = event.payload.get("error_code", "")
-            self.bubble.append_message("assistant", f"Hata ({code}): {msg}")
+            line = f"{i18n.t('chat.error_prefix')} ({code}): {msg}"
+            self.bubble.append_message("assistant", line)
+            self._history.append(SID, "assistant", line)
         elif event.name == "agent_cancelled":
             self._on_finished("")
-            self.bubble.append_message("assistant", "Görev iptal edildi.")
+            line = i18n.t("chat.cancelled")
+            self.bubble.append_message("assistant", line)
+            self._history.append(SID, "assistant", line)
         elif event.name == "confirmation_requested":
             self.signals.activity.emit(
-                f"▸ onay bekleniyor: {event.payload.get('tool_name', '?')} "
-                "(onay penceresi M2'de — İptal'e basın)"
+                f"▸ {i18n.t('confirmation.pending')}: {event.payload.get('tool_name', '?')}"
             )
 
     def context_menu(self) -> QMenu:
         menu = QMenu()
-        act_settings = QAction("Ayarlar…", menu)
+        act_settings = QAction(i18n.t("menu.settings"), menu)
         act_settings.triggered.connect(self._open_settings)
-        act_chat = QAction("Sohbet", menu)
+        act_chat = QAction(i18n.t("menu.chat"), menu)
         act_chat.triggered.connect(self.bubble.toggle)
-        char_menu = QMenu("Karakter", menu)
+        char_menu = QMenu(i18n.t("menu.avatar"), menu)
         for name in self._avatar_names():
             act = QAction(name, char_menu)
             act.triggered.connect(lambda checked=False, n=name: self._switch_avatar(n))
             char_menu.addAction(act)
-        act_switch_gui = QAction("GUI'ye geç", menu)
+        act_switch_gui = QAction(i18n.t("menu.switch_gui"), menu)
         act_switch_gui.triggered.connect(self._switch_to_gui)
-        act_quit = QAction("Çıkış", menu)
+        act_quit = QAction(i18n.t("menu.quit"), menu)
         act_quit.triggered.connect(self.quit)
         menu.addAction(act_settings)
         menu.addAction(act_chat)
@@ -141,11 +155,7 @@ class App:
         return menu
 
     def _switch_to_gui(self) -> None:
-        from ui.prefs import load_prefs, restart_into
-
-        ui_json = Path.home() / ".config" / "desktop-assistant" / "ui.json"
-        prefs = load_prefs(ui_json)
-        restart_into(ui_json, "gui")
+        restart_into(ui_json_path(), "gui")
 
     def _open_settings(self) -> None:
         self.settings_win.load()
@@ -159,7 +169,7 @@ class App:
         settings = load_settings(self.settings_path)
         settings["avatar"] = name
         self.settings_path.write_text(json.dumps(settings, indent=2))
-        self.bubble.append_message("tool", f"Avatar '{name}' seçildi — yeniden başlatın")
+        self.bubble.append_message("tool", i18n.t("chat.avatar_selected", name=name))
 
     def quit(self) -> None:
         self.runtime.close()
@@ -171,16 +181,20 @@ class App:
 
 def build_ui() -> App:
     app = QApplication.instance() or QApplication(sys.argv)
+    prefs = load_prefs(ui_json_path())
+    i18n.set_language(prefs.lang)
+    apply_theme(app, prefs.theme)
     try:
         ui = App()
     except Exception as exc:
         QMessageBox.critical(
             None,
-            "Başlatma hatası",
+            i18n.t("app.title"),
             f"Agent başlatılamadı:\n{exc}\n\nAyarları config/ altından kontrol edin.",
         )
         raise SystemExit(1) from exc
     app.aboutToQuit.connect(ui.runtime.close)
+    app.aboutToQuit.connect(ui._history.close)
     return ui
 
 

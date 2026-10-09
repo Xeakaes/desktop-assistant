@@ -17,20 +17,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-_STYLE = """
-#bubble {
-    background: rgba(20, 24, 32, 220);
-    border: 1px solid rgba(120, 200, 220, 90);
-    border-radius: 12px;
-}
-#bubble QLabel { color: #9fd8e8; background: transparent; }
-#bubble QPlainTextEdit { color: #e8eef2; background: transparent; border: none; }
-#bubble QLineEdit { color: #e8eef2; background: rgba(255,255,255,20);
-    border: 1px solid rgba(120,200,220,80); border-radius: 6px; padding: 4px 8px; }
-#bubble QPushButton { color: #e8eef2; background: rgba(120,200,220,60);
-    border: none; border-radius: 6px; padding: 4px 12px; }
-#bubble QPushButton:hover { background: rgba(120,200,220,100); }
-"""
+from ui.i18n import i18n
 
 
 class BubbleWindow(QFrame):
@@ -42,7 +29,6 @@ class BubbleWindow(QFrame):
     ) -> None:
         super().__init__(parent)
         self.setObjectName("bubble")
-        self.setStyleSheet(_STYLE)
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.WindowStaysOnTopHint
@@ -62,12 +48,11 @@ class BubbleWindow(QFrame):
         self._activity.setWordWrap(True)
 
         self._input = QLineEdit(self)
-        self._input.setPlaceholderText("Mesaj yazın…")
         self._input.returnPressed.connect(self._send)
 
-        self._send_btn = QPushButton("Gönder", self)
+        self._send_btn = QPushButton(self)
         self._send_btn.clicked.connect(self._send)
-        self._cancel_btn = QPushButton("İptal", self)
+        self._cancel_btn = QPushButton(self)
         self._cancel_btn.clicked.connect(self._on_cancel)
         self._cancel_btn.setVisible(False)
 
@@ -81,10 +66,23 @@ class BubbleWindow(QFrame):
         layout.addWidget(self._activity)
         layout.addLayout(row)
 
+        from ui.i18n import language_bridge
+
+        language_bridge.changed.connect(self.retranslate)
+        self.retranslate()
         self.set_busy(False)
 
+    def retranslate(self) -> None:
+        self._input.setPlaceholderText(i18n.t("chat.input_placeholder"))
+        self._send_btn.setText(i18n.t("chat.send"))
+        self._cancel_btn.setText(i18n.t("chat.cancel"))
+
     def append_message(self, role: str, text: str) -> None:
-        prefix = {"user": "Sen:", "assistant": "Asistan:", "tool": "▸"}.get(role, role)
+        prefix = {
+            "user": i18n.t("chat.user_prefix") + ":",
+            "assistant": i18n.t("chat.assistant_prefix") + ":",
+            "tool": "▸",
+        }.get(role, role)
         self._transcript.appendPlainText(f"{prefix} {text}")
 
     def set_busy(self, busy: bool) -> None:

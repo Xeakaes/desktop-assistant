@@ -5,9 +5,10 @@ from __future__ import annotations
 import threading
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import (
+    QApplication,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -17,14 +18,15 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QPushButton,
     QScrollArea,
-    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
 
-from ui.history import HistoryStore
+from ui.history import HistoryStore, default_db_path
 from ui.i18n import i18n
+from ui.paths import SETTINGS_PATH, SECRETS_PATH, ui_json_path
 from ui.prefs import UiPrefs, load_prefs, save_prefs
+from ui.theme import qss
 
 
 class _Input(QPlainTextEdit):
@@ -41,18 +43,37 @@ class _Input(QPlainTextEdit):
         super().keyPressEvent(event)
 
 
+class _UiSignals(QObject):
+    assistant = Signal(str)
+    tool = Signal(str, str, bool)
+    finished = Signal()
+    error = Signal(str)
+    cancelled = Signal()
+
+
 class ChatWindow(QMainWindow):
-    def __init__(self, runtime=None, history: HistoryStore | None = None,
-                 ui_json_path: Path | None = None, parent=None) -> None:
+    def __init__(
+        self,
+        runtime=None,
+        bus=None,
+        history: HistoryStore | None = None,
+        ui_json_path: Path | None = None,
+        settings_path: Path | None = None,
+        secrets_path: Path | None = None,
+        parent=None,
+    ) -> None:
         super().__init__(parent)
         self.setObjectName("main")
         self.resize(880, 600)
         self._runtime = runtime
-        self._history = history or HistoryStore(Path("/tmp/desktop-assistant-test.db"))
-        self._ui_json_path = ui_json_path or Path.home() / ".config" / "desktop-assistant" / "ui.json"
+        self._history = history or HistoryStore(default_db_path())
+        self._ui_json_path = ui_json_path or default_ui_json()
+        self._settings_path = settings_path or SETTINGS_PATH
+        self._secrets_path = secrets_path or SECRETS_PATH
         self._session_id: str | None = None
         self._messages: list[dict] = []
         self._busy = False
+        self._sidebar_expanded = True
 
         # --- sidebar ---
         self._new_chat_btn = QPushButton(self)
@@ -122,6 +143,24 @@ class ChatWindow(QMainWindow):
         central_l.addWidget(right_w, 1)
         self.setCentralWidget(central)
 
+        self._signals = _UiSignals()
+        self._signals.assistant.connect(self._on_assistant)
+        self._signals.tool.connect(self._on_tool)
+        self._signals.finished.connect(self._on_finished)
+        self._signals.error.connect(self._on_error)
+        self._signals.cancelled.connect(self._on_cancelled)
+
+        self._bridge = None
+        if bus is not None:
+            from ui.bridge import QtBridge
+
+            self._bridge = QtBridge(bus)
+            self._bridge.sig.connect(self._on_event)
+
+        from ui.i18n import language_bridge
+
+        language_bridge.changed.connect(self.retranslate)
+
         self.retranslate()
         self.new_chat()
 
@@ -134,7 +173,10 @@ class ChatWindow(QMainWindow):
         self._theme_btn.setText(t("sidebar.theme"))
         self._settings_btn.setText(t("sidebar.settings"))
         self._switch_avatar_btn.setText(t("sidebar.switch_avatar"))
-        self._collapse_btn.setText(t("sidebar.collapse"))
+        if self._sidebar_expanded:
+            self._collapse_btn.setText(t("sidebar.collapse"))
+        else:
+            self._collapse_btn.setText(t("sidebar.expand"))
         self._chat_input.setPlaceholderText(t("chat.input_placeholder"))
         self._send_btn.setText(t("chat.send"))
         self._cancel_btn.setText(t("chat.cancel"))
@@ -143,22 +185,23 @@ class ChatWindow(QMainWindow):
         prefs = load_prefs(self._ui_json_path)
         new = "light" if prefs.theme == "dark" else "dark"
         save_prefs(self._ui_json_path, UiPrefs(mode=prefs.mode, theme=new, lang=prefs.lang))
-        app = self.window().windowHandle() and self.window().window().window()
-        from PySide6.QtWidgets import QApplication
-
-        from ui.theme import qss
-
-        (app or QApplication.instance()).setStyleSheet(qss(new))
+        app = QApplication.instance()
+        if app is not None:
+            app.setStyleSheet(qss(new))
 
     def _toggle_sidebar(self) -> None:
-        if self._side_inner.width() > 100:
+        if self._sidebar_expanded:
             self._side_inner.setFixedWidth(48)
-            self._new_chat_btn.hide()
-            self._sessions.hide()
-            self._theme_btn.hide()
-            self._settings_btn.hide()
-            self._switch_avatar_btn.hide()
-            self._collapse_btn.setText(t_safe("sidebar.expand"))
+            for w in (
+                self._new_chat_btn,
+                self._sessions,
+                self._theme_btn,
+                self._settings_btn,
+                self._switch_avatar_btn,
+            ):
+                w.hide()
+            self._sidebar_expanded = False
+            self._collapse_btn.setText(i18n.t("sidebar.expand"))
         else:
             self._side_inner.setFixedWidth(260)
             for w in (
@@ -169,7 +212,8 @@ class ChatWindow(QMainWindow):
                 self._switch_avatar_btn,
             ):
                 w.show()
-            self._collapse_btn.setText(t_safe("sidebar.collapse"))
+            self._sidebar_expanded = True
+            self._collapse_btn.setText(i18n.t("sidebar.collapse"))
 
     def _switch_to_avatar(self) -> None:
         prefs = load_prefs(self._ui_json_path)
@@ -187,8 +231,8 @@ class ChatWindow(QMainWindow):
 
         if getattr(self, "_settings_win", None) is None:
             self._settings_win = SettingsWindow(
-                Path.home() / ".config" / "desktop-assistant" / "settings.json",
-                Path.home() / ".config" / "desktop-assistant" / "secrets.json",
+                self._settings_path,
+                self._secrets_path,
                 self._ui_json_path,
             )
         self._settings_win.load()
@@ -227,11 +271,11 @@ class ChatWindow(QMainWindow):
         self._session_id = session_id
         self._clear_messages()
         for role, content, tool_name in self._history.messages(session_id):
-            self._append(role, content, tool_name=tool_name)
+            self._append(role, content)
 
     # --- chat ---
 
-    def _append(self, role: str, text: str, tool_name: str | None = None) -> dict:
+    def _append(self, role: str, text: str) -> dict:
         name = {"user": "msg_user", "assistant": "msg_assistant", "tool": "msg_tool"}.get(
             role, "msg_assistant"
         )
@@ -245,46 +289,86 @@ class ChatWindow(QMainWindow):
         frame.show()
         entry = {"role": role, "text": text, "objectName": name, "widget": frame}
         self._messages.append(entry)
+        self._scroll.verticalScrollBar().setValue(self._scroll.verticalScrollBar().maximum())
         return entry
 
     def _send(self) -> None:
         if self._busy:
             return
         text = self._chat_input.toPlainText().strip()
-        if not text or self._runtime is None and getattr(self, "_core", None) is None:
-            if not text:
-                return
+        if not text or self._runtime is None:
+            return
         self._chat_input.clear()
         self._append("user", text)
         self._history.append(self._session_id, "user", text)
+        self._reload_sessions()
         self._set_busy(True)
-        if getattr(self, "_core", None) is not None:
-            self._run_core(self._core, text)
-        else:
-            threading.Thread(target=self._run_agent, args=(text,), daemon=True).start()
-
-    def _run_core(self, core, text: str) -> None:
-        try:
-            for event in core.ask(text):
-                name = event.get("event", "")
-                if name == "token":
-                    pass
-                elif name == "assistant_message":
-                    msg = event.get("text", "")
-                    if msg:
-                        self._append("assistant", msg)
-                        self._history.append(self._session_id, "assistant", msg)
-        finally:
-            self._set_busy(False)
+        threading.Thread(target=self._run_agent, args=(text,), daemon=True).start()
 
     def _run_agent(self, text: str) -> None:
         try:
             tid = self._runtime.begin_task(self._session_id, text)
             self._runtime.run_task(tid)
         except Exception as exc:
-            self._append("assistant", f"{i18n.t('chat.error_prefix')}{exc}")
-        finally:
-            self._set_busy(False)
+            self._signals.error.emit(str(exc))
+
+    def _on_event(self, event) -> None:
+        name = event.name
+        payload = event.payload or {}
+        if name == "agent_started":
+            self._set_busy(True)
+        elif name == "tool_started":
+            tool = payload.get("tool_name", "")
+            self._signals.tool.emit("tool", i18n.t("chat.tool_started_line", name=tool), True)
+            self._activity.setText(i18n.t("chat.activity_running", name=tool))
+        elif name == "tool_finished":
+            tool = payload.get("tool_name", "")
+            ok = bool(payload.get("ok"))
+            key = "chat.tool_finished_ok" if ok else "chat.tool_finished_fail"
+            self._signals.tool.emit("tool", i18n.t(key, name=tool), True)
+            self._activity.setText("")
+        elif name == "assistant_message":
+            text = payload.get("text", "")
+            if text:
+                self._signals.assistant.emit(text)
+        elif name == "agent_finished":
+            self._signals.finished.emit()
+        elif name == "agent_error":
+            code = payload.get("error_code", "")
+            msg = payload.get("message") or code
+            self._signals.error.emit(f"({code}): {msg}")
+        elif name == "agent_cancelled":
+            self._signals.cancelled.emit()
+        elif name == "confirmation_requested":
+            self._activity.setText(
+                i18n.t("confirmation.pending") + f" {payload.get('tool_name', '?')}"
+            )
+
+    def _on_assistant(self, text: str) -> None:
+        self._append("assistant", text)
+        self._history.append(self._session_id, "assistant", text)
+
+    def _on_tool(self, role: str, text: str, _persist: bool) -> None:
+        self._append(role, text)
+
+    def _on_finished(self) -> None:
+        self._set_busy(False)
+        self._activity.setText("")
+        self._reload_sessions()
+
+    def _on_error(self, msg: str) -> None:
+        self._set_busy(False)
+        self._activity.setText("")
+        line = f"{i18n.t('chat.error_prefix')}: {msg}"
+        self._append("assistant", line)
+        self._history.append(self._session_id, "assistant", line)
+        self._reload_sessions()
+
+    def _on_cancelled(self) -> None:
+        self._set_busy(False)
+        self._activity.setText("")
+        self._append("assistant", i18n.t("chat.cancelled"))
+        self._history.append(self._session_id, "assistant", i18n.t("chat.cancelled"))
 
     def _cancel(self) -> None:
         if self._runtime is not None:
@@ -294,11 +378,9 @@ class ChatWindow(QMainWindow):
         self._busy = busy
         self._send_btn.setEnabled(not busy)
         self._cancel_btn.setEnabled(busy)
-        self._activity.setText(i18n.t("chat.activity_running") if busy else "")
 
 
-def t_safe(key: str) -> str:
-    try:
-        return i18n.t(key)
-    except Exception:
-        return key
+def default_ui_json() -> Path:
+    from ui.paths import ui_json_path
+
+    return ui_json_path()

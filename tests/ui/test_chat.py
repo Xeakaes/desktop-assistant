@@ -15,20 +15,35 @@ def _make_window(tmp_path):
     return app, win
 
 
-def test_sends_and_appends(tmp_path, monkeypatch):
+class FakeRuntime:
+    def __init__(self, win):
+        self._win = win
+
+    def begin_task(self, sid, text):
+        from ui.gui.main_window import _UiSignals  # noqa: F401
+
+        self._win._signals.assistant.emit("merhaba")
+        self._win._signals.finished.emit()
+        return "tid"
+
+    def run_task(self, tid):
+        pass
+
+    def cancel_active_task(self):
+        pass
+
+
+def test_sends_and_appends(tmp_path):
     app, win = _make_window(tmp_path)
-
-    class FakeCore:
-        def ask(self, prompt):
-            yield {"event": "token", "text": "merhaba"}
-            yield {"event": "message_end"}
-
-    win._core = FakeCore()
+    win._runtime = FakeRuntime(win)
     win._chat_input.setPlainText("selam")
     win._send()
     assert win._messages[-1]["role"] == "user"
     assert win._messages[-1]["text"] == "selam"
     assert win._messages[-1]["objectName"] == "msg_user"
+    # history row persisted
+    msgs = win._history.messages(win._session_id)
+    assert msgs[0] == ("user", "selam", None)
     win.hide()
 
 
@@ -62,4 +77,14 @@ def test_history_click_loads_session(tmp_path):
     win._reload_sessions()
     win._load_session(sid, force=True)
     assert win._messages[0]["text"] == "eski mesaj"
+    win.hide()
+
+
+def test_sidebar_toggle_width(tmp_path):
+    app, win = _make_window(tmp_path)
+    assert win._side_inner.width() == 260
+    win._toggle_sidebar()
+    assert win._side_inner.width() == 48
+    win._toggle_sidebar()
+    assert win._side_inner.width() == 260
     win.hide()
