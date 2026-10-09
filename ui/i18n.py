@@ -1,0 +1,129 @@
+"""Strict tr/en translation catalog (spec §12): missing keys fail loud."""
+
+from __future__ import annotations
+
+from typing import Any
+
+LANGUAGES: tuple[str, ...] = ("tr", "en")
+
+
+class MissingTranslationError(KeyError):
+    pass
+
+
+STRINGS: dict[str, dict[str, str]] = {
+    "app.title": {"tr": "Masaüstü Asistanı", "en": "Desktop Assistant"},
+    "mode.gui": {"tr": "Sohbet (GUI)", "en": "Chat (GUI)"},
+    "mode.avatar": {"tr": "Avatar", "en": "Avatar"},
+    "mode.choose_title": {"tr": "Mod seçin", "en": "Choose a mode"},
+    "mode.choose_body": {
+        "tr": "Uygulamayı hangi modda açmak istersiniz? Tercihiniz hatırlanacak.",
+        "en": "Which mode should the app start in? Your choice will be remembered.",
+    },
+    "sidebar.new_chat": {"tr": "+ Yeni sohbet", "en": "+ New chat"},
+    "sidebar.sessions": {"tr": "Geçmiş sohbetler", "en": "Chat history"},
+    "sidebar.theme": {"tr": "Tema", "en": "Theme"},
+    "sidebar.settings": {"tr": "Ayarlar", "en": "Settings"},
+    "sidebar.switch_avatar": {"tr": "Avatar'a geç", "en": "Switch to Avatar"},
+    "sidebar.collapse": {"tr": "Daralt", "en": "Collapse"},
+    "sidebar.expand": {"tr": "Genişlet", "en": "Expand"},
+    "chat.input_placeholder": {"tr": "Mesaj yazın…", "en": "Type a message…"},
+    "chat.send": {"tr": "Gönder", "en": "Send"},
+    "chat.cancel": {"tr": "İptal", "en": "Cancel"},
+    "chat.tool_activity": {"tr": "Araç etkinliği", "en": "Tool activity"},
+    "chat.user_prefix": {"tr": "Sen", "en": "You"},
+    "chat.assistant_prefix": {"tr": "Asistan", "en": "Assistant"},
+    "chat.tool_prefix": {"tr": "Araç", "en": "Tool"},
+    "chat.cancelled": {"tr": "Görev iptal edildi.", "en": "Task cancelled."},
+    "chat.error_prefix": {"tr": "Hata", "en": "Error"},
+    "settings.title": {"tr": "Ayarlar — Masaüstü Asistanı", "en": "Settings — Desktop Assistant"},
+    "settings.theme": {"tr": "Tema", "en": "Theme"},
+    "settings.theme_dark": {"tr": "Karanlık", "en": "Dark"},
+    "settings.theme_light": {"tr": "Açık", "en": "Light"},
+    "settings.mode": {"tr": "Mod", "en": "Mode"},
+    "settings.lang": {"tr": "Dil", "en": "Language"},
+    "settings.lang_tr": {"tr": "Türkçe", "en": "Turkish"},
+    "settings.lang_en": {"tr": "İngilizce", "en": "English"},
+    "settings.pack_title": {"tr": "Özel karakter", "en": "Custom character"},
+    "settings.pack_pick": {"tr": "Fotoğraf seç…", "en": "Choose photo…"},
+    "settings.pack_name": {"tr": "Paket adı", "en": "Pack name"},
+    "settings.pack_build": {"tr": "Paketi oluştur", "en": "Build pack"},
+    "settings.pack_success": {"tr": "Paket oluşturuldu: {name}", "en": "Pack created: {name}"},
+    "settings.pack_exists": {"tr": "Bu isim zaten var: {name}", "en": "Name already exists: {name}"},
+    "settings.pack_bad_image": {"tr": "Geçersiz veya bozuk görsel.", "en": "Invalid or corrupt image."},
+    "settings.save_restart_note": {
+        "tr": "Kaydedildi — sağlayıcı/izinler için yeniden başlatın",
+        "en": "Saved — restart for provider/permission changes",
+    },
+    "settings.section_general": {"tr": "Genel", "en": "General"},
+    "settings.section_provider": {"tr": "Sağlayıcı", "en": "Provider"},
+    "settings.section_screen": {"tr": "Ekran kontrolü", "en": "Screen control"},
+    "settings.section_permissions": {"tr": "İzinler", "en": "Permissions"},
+    "settings.section_avatar": {"tr": "Avatar", "en": "Avatar"},
+    "settings.provider_type": {"tr": "Sağlayıcı", "en": "Provider"},
+    "settings.provider_url": {"tr": "URL (boş = varsayılan)", "en": "URL (empty = default)"},
+    "settings.provider_model": {"tr": "Model", "en": "Model"},
+    "settings.provider_key": {"tr": "API anahtarı", "en": "API key"},
+    "settings.sc_host": {"tr": "SC host", "en": "SC host"},
+    "settings.sc_port": {"tr": "SC port", "en": "SC port"},
+    "settings.sc_key": {"tr": "SC anahtarı", "en": "SC key"},
+    "settings.perm_default": {"tr": "İzin (*)", "en": "Permission (*)"},
+    "settings.save": {"tr": "Kaydet", "en": "Save"},
+    "settings.close": {"tr": "Kapat", "en": "Close"},
+    "settings.lang_restart_note": {
+        "tr": "Dil değişikliği uygulandı.",
+        "en": "Language changed.",
+    },
+    "menu.settings": {"tr": "Ayarlar…", "en": "Settings…"},
+    "menu.chat": {"tr": "Sohbet", "en": "Chat"},
+    "menu.avatar": {"tr": "Karakter", "en": "Character"},
+    "menu.quit": {"tr": "Çıkış", "en": "Quit"},
+    "menu.switch_gui": {"tr": "Sohbet'e geç", "en": "Switch to Chat"},
+    "confirmation.pending": {
+        "tr": "onay bekleniyor (M2) — İptal'e basın",
+        "en": "awaiting approval (M2) — press Cancel",
+    },
+    "chat.tool_started_line": {"tr": "{name} başladı", "en": "{name} started"},
+    "chat.tool_finished_ok": {"tr": "{name} bitti (Tamam)", "en": "{name} done (OK)"},
+    "chat.tool_finished_fail": {"tr": "{name} bitti (Hata)", "en": "{name} done (Error)"},
+    "chat.activity_running": {"tr": "▸ {name} çalışıyor…", "en": "▸ {name} running…"},
+    "chat.avatar_fallback": {
+        "tr": "Avatar '{name}' bozuk — 'base' kullanılıyor",
+        "en": "Avatar '{name}' broken — falling back to 'base'",
+    },
+    "chat.avatar_selected": {
+        "tr": "Avatar '{name}' seçildi — yeniden başlatın",
+        "en": "Avatar '{name}' selected — restart to apply",
+    },
+}
+
+
+class I18n:
+    def __init__(self, lang: str = "tr") -> None:
+        if lang not in LANGUAGES:
+            raise ValueError(f"unknown language: {lang}")
+        self._lang = lang
+
+    @property
+    def current(self) -> str:
+        return self._lang
+
+    def set_language(self, lang: str) -> None:
+        if lang not in LANGUAGES:
+            raise ValueError(f"unknown language: {lang}")
+        self._lang = lang
+
+    def t(self, key: str, **fmt: Any) -> str:
+        try:
+            entry = STRINGS[key]
+        except KeyError as exc:
+            raise MissingTranslationError(key) from exc
+        text = entry.get(self._lang)
+        if not text:
+            raise MissingTranslationError(f"{key}/{self._lang}")
+        if fmt:
+            return text.format_map(fmt)
+        return text
+
+
+i18n = I18n("tr")
