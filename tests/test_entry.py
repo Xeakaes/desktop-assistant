@@ -6,8 +6,9 @@ from pathlib import Path
 from app_entry import entry
 
 
-def test_version_flag_prints(capsys, monkeypatch):
+def test_version_flag_prints(capsys, monkeypatch, tmp_path):
     monkeypatch.delenv("APP_VERSION", raising=False)
+    monkeypatch.setattr(entry, "_version_file", lambda: tmp_path / "_version.txt")
     assert entry.main(["--version"]) == 0
     assert "0.0.0" in capsys.readouterr().out
 
