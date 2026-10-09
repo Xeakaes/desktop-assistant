@@ -1,8 +1,7 @@
 {
   "provider": {
-    "type": "ollama",
-    "url": "http://127.0.0.1:11434",
-    "model": "qwen2.5-coder:7b"
+    "type": "groq",
+    "model": "qwen/qwen3.8-27b"
   },
   "screen_control": {
     "enabled": true,
