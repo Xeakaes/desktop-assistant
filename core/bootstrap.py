@@ -22,12 +22,7 @@ DEFAULT_SECRETS = config_dir() / "secrets.json"
 
 def default_client_factory(settings: dict, secrets: dict) -> Callable[[], Any]:
     def factory():
-        import sys
-
-        sdk_path = "/home/xeakaes/screen-control/sdk"
-        if sdk_path not in sys.path:
-            sys.path.insert(0, sdk_path)
-        from screen_control import ScreenControl  # lazy — only when a tool runs
+        from vendor.sc_server.sdk import ScreenControl  # lazy — only when a tool runs
 
         sc_cfg = settings.get("screen_control") or {}
         return ScreenControl(
