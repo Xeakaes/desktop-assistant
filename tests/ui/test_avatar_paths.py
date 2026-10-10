@@ -79,6 +79,9 @@ def test_build_pack_writes_to_user_dir(tmp_path, monkeypatch):
     win._pack_path.setText(str(src))
     win._pack_name.setText("myhero")
     win._build_pack()
+    # Build runs on a QThread now — wait for it to finish.
+    assert win._pack_worker is not None
+    assert win._pack_worker.wait(10000), "pack build thread did not finish"
     # Pack must land in the user dir, not the bundle.
     assert (user / "myhero" / "manifest.json").is_file()
     assert not (bundle / "myhero").exists()

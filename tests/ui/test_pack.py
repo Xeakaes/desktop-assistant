@@ -43,6 +43,31 @@ def test_sanitize_pack_name():
         sanitize_pack_name("!!!")
 
 
+def test_build_pack_predownscales_large_source(tmp_path):
+    """A big source image must be pre-scaled to <=512px before the pipeline.
+
+    This keeps the flood-fill background removal fast on large photos.
+    """
+    from PIL import Image
+
+    src = tmp_path / "big.png"
+    # 2000x2000 with a distinct foreground block.
+    img = Image.new("RGB", (2000, 2000), (255, 255, 255))
+    for x in range(800, 1200):
+        for y in range(800, 1200):
+            img.putpixel((x, y), (30, 30, 200))
+    img.save(src)
+
+    out = tmp_path / "bigpack"
+    build_pack(src, out, "bigpack")
+    manifest = json.loads((out / "manifest.json").read_text())
+    assert set(manifest["states"]) == REQUIRED
+    # Frames must still be produced and each frame's height is TARGET_H (192).
+    frame_path = out / manifest["states"]["idle"]["frames"][0]
+    with Image.open(frame_path) as frame:
+        assert frame.height == 192
+
+
 def _make_pack(root: Path, name: str) -> Path:
     pack = root / name
     (pack / "frames").mkdir(parents=True)

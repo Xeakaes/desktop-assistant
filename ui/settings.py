@@ -7,7 +7,7 @@ import os
 import tempfile
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QComboBox,
@@ -46,6 +46,30 @@ PROVIDER_KEY_SECRETS = {
     "google": "google_api_key",
     "nararouter": "nararouter_api_key",
 }
+
+
+class _PackBuildWorker(QThread):
+    """Runs build_pack off the UI thread so the window never freezes."""
+
+    succeeded = Signal(str)  # pack name
+    failed = Signal(str, str)  # name, error kind ("exists" | "bad_image" | "error")
+
+    def __init__(self, src: Path, out: Path, name: str, parent=None) -> None:
+        super().__init__(parent)
+        self._src = src
+        self._out = out
+        self._name = name
+
+    def run(self) -> None:
+        try:
+            build_pack(self._src, self._out, self._name)
+        except PackError as exc:
+            kind = "exists" if "exists" in str(exc) else "bad_image"
+            self.failed.emit(self._name, kind)
+        except Exception:
+            self.failed.emit(self._name, "error")
+        else:
+            self.succeeded.emit(self._name)
 
 
 def merge_permissions(existing: dict, default: str, per_tool: dict) -> dict:
@@ -333,27 +357,31 @@ class SettingsWindow(QWidget):
 
         avatars_root = user_avatars_dir()
         out = avatars_root / name
-        try:
-            self.setCursor(Qt.CursorShape.WaitCursor)
-            build_pack(Path(src), out, name)
-        except PackError as exc:
-            msg = (
-                i18n.t("settings.pack_exists", name=name)
-                if "exists" in str(exc)
-                else i18n.t("settings.pack_bad_image")
-            )
-            self._status.setText(msg)
-        except Exception:
-            self._status.setText(i18n.t("settings.pack_bad_image"))
+        # Build on a background thread so the UI stays responsive.
+        self._pack_build.setEnabled(False)
+        self.setCursor(Qt.CursorShape.WaitCursor)
+        self._pack_worker = _PackBuildWorker(Path(src), out, name, parent=self)
+        self._pack_worker.succeeded.connect(self._on_pack_built)
+        self._pack_worker.failed.connect(self._on_pack_failed)
+        self._pack_worker.start()
+
+    def _on_pack_built(self, name: str) -> None:
+        self.unsetCursor()
+        self._pack_build.setEnabled(True)
+        self._status.setText(i18n.t("settings.pack_success", name=name))
+        self._avatar.clear()
+        self._avatar.addItems(self._list_avatars())
+        idx = self._avatar.findText(name)
+        if idx >= 0:
+            self._avatar.setCurrentIndex(idx)
+
+    def _on_pack_failed(self, name: str, kind: str) -> None:
+        self.unsetCursor()
+        self._pack_build.setEnabled(True)
+        if kind == "exists":
+            self._status.setText(i18n.t("settings.pack_exists", name=name))
         else:
-            self._status.setText(i18n.t("settings.pack_success", name=name))
-            self._avatar.clear()
-            self._avatar.addItems(self._list_avatars())
-            idx = self._avatar.findText(name)
-            if idx >= 0:
-                self._avatar.setCurrentIndex(idx)
-        finally:
-            self.unsetCursor()
+            self._status.setText(i18n.t("settings.pack_bad_image"))
 
     def _delete_pack(self) -> None:
         name = self._avatar.currentText().strip()

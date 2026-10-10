@@ -132,6 +132,8 @@ def build_pack(source_image: Path, out_dir: Path, name: str) -> Path:
         img.load()
     except Exception as exc:
         raise PackError(f"bad image: {exc}") from exc
+    # Pre-downscale huge sources so the flood-fill background removal stays fast.
+    img.thumbnail((512, 512))
     # Build into a temp sibling, rename on success — no partial pack left on failure.
     import shutil
     import uuid

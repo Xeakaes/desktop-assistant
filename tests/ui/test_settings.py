@@ -99,7 +99,6 @@ def test_delete_pack_removes_dir_and_refreshes(tmp_path, monkeypatch):
 def test_delete_pack_refuses_base(tmp_path, monkeypatch):
     from PySide6.QtWidgets import QApplication
 
-    from core.paths import assets_dir
     from ui.settings import SettingsWindow
 
     app = QApplication.instance() or QApplication([])
@@ -116,5 +115,63 @@ def test_delete_pack_refuses_base(tmp_path, monkeypatch):
     win._avatar.setCurrentIndex(win._avatar.findText("base"))
     win._delete_pack()
     assert base.exists()  # still there
+    win.hide()
+    win.deleteLater()
+
+
+def test_build_pack_runs_on_background_thread(tmp_path, monkeypatch):
+    """_build_pack must not block: it starts a QThread and disables the button."""
+    import threading
+
+    from PySide6.QtWidgets import QApplication
+
+    from ui.settings import SettingsWindow
+
+    app = QApplication.instance() or QApplication([])
+    settings, secrets, ui_json = _make_settings_files(tmp_path)
+
+    cfg = tmp_path / "cfg"
+    bundle = tmp_path / "bundle_assets"
+    (bundle / "avatars").mkdir(parents=True)
+    monkeypatch.setattr("core.paths.assets_dir", lambda: bundle)
+    monkeypatch.setattr("core.paths.config_dir", lambda: cfg)
+
+    # A slow stub so we can observe the in-flight state.
+    started = threading.Event()
+    release = threading.Event()
+
+    def slow_build(src, out, name):
+        started.set()
+        release.wait(timeout=5)
+        (out / "frames").mkdir(parents=True, exist_ok=True)
+        (out / "manifest.json").write_text('{"name": "%s", "states": {}}' % name)
+
+    monkeypatch.setattr("ui.settings.build_pack", slow_build)
+
+    from PIL import Image
+
+    src = tmp_path / "photo.png"
+    img = Image.new("RGB", (64, 64), (255, 255, 255))
+    for x in range(20, 44):
+        for y in range(20, 44):
+            img.putpixel((x, y), (200, 30, 30))
+    img.save(src)
+
+    win = SettingsWindow(settings, secrets, ui_json)
+    win._pack_path.setText(str(src))
+    win._pack_name.setText("worker")
+    win._build_pack()  # should return immediately (thread started)
+    # Button is disabled while the worker runs.
+    assert not win._pack_build.isEnabled()
+    assert started.wait(timeout=2), "build_pack never started on the thread"
+    release.set()
+    # Let the worker finish and the completion slot run.
+    for _ in range(50):
+        app.processEvents()
+        if win._pack_build.isEnabled():
+            break
+        threading.Event().wait(0.05)
+    assert win._pack_build.isEnabled(), "button not re-enabled after build"
+    assert (cfg / "avatars" / "worker" / "manifest.json").is_file()
     win.hide()
     win.deleteLater()
