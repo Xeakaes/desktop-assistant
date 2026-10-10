@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QSpinBox,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -198,11 +199,20 @@ class SettingsWindow(QWidget):
         buttons.addStretch(1)
 
         layout = QVBoxLayout(self)
-        layout.addWidget(general_box)
-        layout.addWidget(provider_box)
-        layout.addWidget(sc_box)
-        layout.addWidget(perm_box)
-        layout.addWidget(avatar_box)
+        self._tabs = QTabWidget(self)
+        general_box.setFlat(True)
+        provider_box.setFlat(True)
+        sc_box.setFlat(True)
+        perm_box.setFlat(True)
+        avatar_box.setFlat(True)
+        for box in (general_box, provider_box, sc_box, perm_box, avatar_box):
+            box.setTitle("")
+        self._tabs.addTab(general_box, i18n.t("settings.section_general"))
+        self._tabs.addTab(provider_box, i18n.t("settings.section_provider"))
+        self._tabs.addTab(sc_box, i18n.t("settings.section_screen"))
+        self._tabs.addTab(perm_box, i18n.t("settings.section_permissions"))
+        self._tabs.addTab(avatar_box, i18n.t("settings.section_avatar"))
+        layout.addWidget(self._tabs)
         layout.addWidget(self._status)
         layout.addLayout(buttons)
 
@@ -251,6 +261,11 @@ class SettingsWindow(QWidget):
         self._theme.setItemText(1, t("settings.theme_light"))
         self._mode.setItemText(0, "GUI")
         self._mode.setItemText(1, t("mode.avatar"))
+        self._tabs.setTabText(0, t("settings.section_general"))
+        self._tabs.setTabText(1, t("settings.section_provider"))
+        self._tabs.setTabText(2, t("settings.section_screen"))
+        self._tabs.setTabText(3, t("settings.section_permissions"))
+        self._tabs.setTabText(4, t("settings.section_avatar"))
 
     def load(self) -> None:
         settings = self._read(self._settings_path)

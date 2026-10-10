@@ -38,6 +38,23 @@ def test_settings_window_load_and_save(tmp_path):
     win.deleteLater()
 
 
+def test_settings_has_five_titled_tabs(tmp_path):
+    from PySide6.QtWidgets import QApplication, QTabWidget
+
+    from ui.settings import SettingsWindow
+
+    app = QApplication.instance() or QApplication([])
+    settings, secrets, ui_json = _make_settings_files(tmp_path)
+    win = SettingsWindow(settings, secrets, ui_json)
+    tabs = win.findChild(QTabWidget)
+    assert tabs is not None
+    assert tabs.count() == 5
+    titles = {tabs.tabText(i) for i in range(tabs.count())}
+    assert titles == {"Genel", "Sağlayıcı", "Ekran kontrolü", "İzinler", "Avatar"}
+    win.hide()
+    win.deleteLater()
+
+
 def _make_settings_files(tmp_path):
     settings = tmp_path / "settings.json"
     settings.write_text(
