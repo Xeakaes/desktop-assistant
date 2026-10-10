@@ -329,9 +329,9 @@ class SettingsWindow(QWidget):
         except PackError:
             self._status.setText(i18n.t("settings.pack_bad_image"))
             return
-        from core.paths import assets_dir
+        from core.paths import user_avatars_dir
 
-        avatars_root = assets_dir() / "avatars"
+        avatars_root = user_avatars_dir()
         out = avatars_root / name
         try:
             self.setCursor(Qt.CursorShape.WaitCursor)
@@ -371,10 +371,10 @@ class SettingsWindow(QWidget):
         )
         if answer != QMessageBox.StandardButton.Yes:
             return
-        from core.paths import assets_dir
+        from core.paths import user_avatars_dir
 
         try:
-            delete_pack(assets_dir() / "avatars", name)
+            delete_pack(user_avatars_dir(), name)
         except PackError as exc:
             msg = (
                 i18n.t("settings.pack_delete_builtin")
@@ -397,12 +397,14 @@ class SettingsWindow(QWidget):
         event.ignore()
 
     def _list_avatars(self) -> list:
-        from core.paths import assets_dir
+        from core.paths import assets_dir, user_avatars_dir
 
-        root = assets_dir() / "avatars"
-        if not root.is_dir():
-            return ["base"]
-        return sorted(p.name for p in root.iterdir() if p.is_dir()) or ["base"]
+        names: set[str] = set()
+        for root in (assets_dir() / "avatars", user_avatars_dir()):
+            if root.is_dir():
+                names.update(p.name for p in root.iterdir() if p.is_dir())
+        names.add("base")  # built-in always present
+        return sorted(names)
 
     @staticmethod
     def _read(path: Path) -> dict:

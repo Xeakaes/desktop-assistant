@@ -74,13 +74,20 @@ class App:
             self.bubble.append_message("tool", self._pending_avatar_note)
 
     def _make_avatar(self, name: str) -> AvatarWindow:
-        try:
-            return AvatarWindow(ASSETS / name, context_menu_factory=self.context_menu)
-        except Exception:
-            if name != "base":
-                self._pending_avatar_note = i18n.t("chat.avatar_fallback", name=name)
-                return AvatarWindow(ASSETS / "base", context_menu_factory=self.context_menu)
-            raise
+        from core.paths import user_avatars_dir
+
+        # User-built packs take precedence; then the bundled asset dir.
+        for root in (user_avatars_dir(), ASSETS):
+            candidate = root / name
+            if candidate.is_dir():
+                try:
+                    return AvatarWindow(candidate, context_menu_factory=self.context_menu)
+                except Exception:
+                    continue
+        if name != "base":
+            self._pending_avatar_note = i18n.t("chat.avatar_fallback", name=name)
+            return AvatarWindow(ASSETS / "base", context_menu_factory=self.context_menu)
+        raise FileNotFoundError(f"avatar not found: {name}")
 
     def _on_send(self, text: str) -> None:
         self.bubble.append_message("user", text)

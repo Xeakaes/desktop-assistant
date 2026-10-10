@@ -44,6 +44,13 @@ def assets_dir() -> Path:
     return bundle_root() / "assets"
 
 
+def user_avatars_dir() -> Path:
+    """Writable directory for user-built avatar packs (survives updates)."""
+    d = config_dir() / "avatars"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
 def ensure_user_config() -> None:
     """Seed config_dir() with defaults on first frozen launch."""
     import json

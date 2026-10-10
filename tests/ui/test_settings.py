@@ -56,14 +56,15 @@ def test_delete_pack_removes_dir_and_refreshes(tmp_path, monkeypatch):
 
     from PySide6.QtWidgets import QApplication, QMessageBox
 
-    from core.paths import assets_dir
     from ui.settings import SettingsWindow
 
     app = QApplication.instance() or QApplication([])
     settings, secrets, ui_json = _make_settings_files(tmp_path)
 
     # Fake an avatars root with a deletable pack and the built-in base.
-    avatars = tmp_path / "avatars"
+    # _delete_pack uses user_avatars_dir() -> config_dir()/avatars.
+    cfg = tmp_path / "cfg"
+    avatars = cfg / "avatars"
     pack = avatars / "teto"
     (pack / "frames").mkdir(parents=True)
     (pack / "manifest.json").write_text(json.dumps({"name": "teto", "states": {}}))
@@ -71,7 +72,11 @@ def test_delete_pack_removes_dir_and_refreshes(tmp_path, monkeypatch):
     (base / "frames").mkdir(parents=True)
     (base / "manifest.json").write_text(json.dumps({"name": "base", "states": {}}))
 
-    monkeypatch.setattr("core.paths.assets_dir", lambda: tmp_path)
+    # Empty bundle so _list_avatars does not pick up real on-disk packs.
+    bundle = tmp_path / "bundle_assets"
+    (bundle / "avatars").mkdir(parents=True)
+    monkeypatch.setattr("core.paths.assets_dir", lambda: bundle)
+    monkeypatch.setattr("core.paths.config_dir", lambda: cfg)
     monkeypatch.setattr(
         QMessageBox, "question", staticmethod(lambda *a, **k: QMessageBox.StandardButton.Yes)
     )
