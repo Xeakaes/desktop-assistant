@@ -114,6 +114,10 @@ class AgentRuntime:
     def registry(self) -> ToolRegistry:
         return self._registry
 
+    def set_provider(self, provider: ModelProvider) -> None:
+        """Hot-swap the model provider (e.g. after the user saves Settings)."""
+        self._provider = provider
+
     def begin_task(self, session_id: str, user_text: str) -> str:
         task_id = uuid.uuid4().hex
         task = _Task(task_id, session_id)

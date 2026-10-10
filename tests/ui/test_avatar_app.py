@@ -142,3 +142,13 @@ def test_avatar_confirmation_resolve_denied(tmp_path, monkeypatch):
     ui._on_event(ev)
     assert rt.resolve_calls == [("t1", "c1", False)]
     ui.close()
+
+
+def test_avatar_app_disables_quit_on_last_window_closed(tmp_path, monkeypatch):
+    """Regression: the parentless permission QDialog is the only non-Tool
+    window in avatar mode — closing it (Allow/Deny) must NOT quit the app."""
+    from PySide6.QtWidgets import QApplication
+
+    app, ui, rt = _make_app(tmp_path, monkeypatch)
+    assert QApplication.instance().quitOnLastWindowClosed() is False
+    ui.close()

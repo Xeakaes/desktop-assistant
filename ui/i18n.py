@@ -71,8 +71,29 @@ STRINGS: dict[str, dict[str, str]] = {
     "settings.pack_exists": {"tr": "Bu isim zaten var: {name}", "en": "Name already exists: {name}"},
     "settings.pack_bad_image": {"tr": "Geçersiz veya bozuk görsel.", "en": "Invalid or corrupt image."},
     "settings.save_restart_note": {
-        "tr": "Kaydedildi — sağlayıcı/izinler için yeniden başlatın",
-        "en": "Saved — restart for provider/permission changes",
+        "tr": "Kaydedildi — izinler için yeniden başlatın",
+        "en": "Saved — restart for permission changes",
+    },
+    "setup.missing_provider.title": {
+        "tr": "Model Ayarı Gerekli",
+        "en": "Model Setup Required",
+    },
+    "setup.missing_provider.message": {
+        "tr": (
+            "Yapay zekâ modeli henüz yapılandırılmamış.\n\n"
+            "Tamam'a bastığınızda Ayarlar penceresi açılacak — oradan modelinizi "
+            "ve API anahtarınızı ayarlayıp kaydedin. Uygulama yeniden "
+            "başlatılmadan kullanıma devam eder."
+        ),
+        "en": (
+            "The AI model is not configured yet.\n\n"
+            "Press OK to open the Settings window — set your model and API key "
+            "there, then save. The app keeps running without a restart."
+        ),
+    },
+    "setup.provider_ready": {
+        "tr": "Model yapılandırıldı — hazır.",
+        "en": "Model configured — ready.",
     },
     "settings.section_general": {"tr": "Genel", "en": "General"},
     "settings.section_provider": {"tr": "Sağlayıcı", "en": "Provider"},

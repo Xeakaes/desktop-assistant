@@ -15,12 +15,13 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QObject, QTimer, Signal
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QApplication, QMessageBox, QMenu
 
 from core.bootstrap import build_runtime
 from core.config import load_settings
+from core.providers.base import ProviderError
 from ui.avatar.state_machine import reduce_event
 from ui.avatar.window import AvatarWindow
 from ui.bridge import QtBridge
@@ -31,6 +32,7 @@ from ui.i18n import i18n
 from ui.paths import SECRETS_PATH, SETTINGS_PATH, ui_json_path
 from ui.prefs import load_avatar_pos, load_prefs, restart_into, save_avatar_pos
 from ui.settings import SettingsWindow
+from ui.setup import UnconfiguredProvider, is_missing_key_error, reload_provider
 from ui.theme import apply_theme
 
 from core.paths import assets_dir
@@ -47,8 +49,27 @@ class App:
     def __init__(self) -> None:
         self.settings_path = SETTINGS_PATH
         self.secrets_path = SECRETS_PATH
-        self.runtime, self.bus, self.session = build_runtime()
+        try:
+            self.runtime, self.bus, self.session = build_runtime()
+            self._needs_provider_setup = False
+        except ProviderError as exc:
+            if not is_missing_key_error(exc):
+                raise
+            # Fresh install: no API key yet. Boot with a placeholder provider
+            # and guide the user to Settings instead of dying.
+            self.runtime, self.bus, self.session = build_runtime(
+                provider=UnconfiguredProvider()
+            )
+            self._needs_provider_setup = True
         self._settings_cache = load_settings(self.settings_path)
+        # Avatar + bubble are Qt.Tool windows; the parentless permission
+        # QDialog is the only "normal" window. With Qt's default
+        # quitOnLastWindowClosed=True, closing that dialog (Allow/Deny)
+        # would quit the whole app — keep the event loop alive; quitting
+        # is explicit via the context-menu Quit action.
+        app = QApplication.instance()
+        if app is not None:
+            app.setQuitOnLastWindowClosed(False)
         self._history = HistoryStore(default_db_path())
         self._history.purge_empty_sessions()
         self._sid: str | None = None  # created lazily on first send
@@ -56,6 +77,9 @@ class App:
         self.avatar = self._make_avatar(avatar_name)
         self.bubble = BubbleWindow(on_send=self._on_send, on_cancel=self._on_cancel)
         self.settings_win = SettingsWindow(self.settings_path, self.secrets_path)
+        saved = getattr(self.settings_win, "saved", None)
+        if saved is not None:
+            saved.connect(self._on_settings_saved)
         self.bridge = QtBridge(self.bus)
         self.signals = _UiSignals()
         self.signals.finished.connect(self._on_finished)
@@ -76,6 +100,34 @@ class App:
         self.bubble.move(max(0, self.avatar.x() - 340), max(0, self.avatar.y() - 80))
         if getattr(self, "_pending_avatar_note", ""):
             self.bubble.append_message("tool", self._pending_avatar_note)
+        if self._needs_provider_setup:
+            # Deferred so the avatar/bubble are mapped and the event loop is
+            # running before the modal guidance dialog appears.
+            QTimer.singleShot(0, self._guide_provider_setup)
+
+    def _guide_provider_setup(self) -> None:
+        box = QMessageBox(None)
+        box.setIcon(QMessageBox.Icon.Information)
+        box.setWindowTitle(i18n.t("setup.missing_provider.title"))
+        box.setText(i18n.t("setup.missing_provider.message"))
+        box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        box.exec()
+        self._open_provider_settings()
+
+    def _open_provider_settings(self) -> None:
+        if hasattr(self.settings_win, "show_provider_tab"):
+            self.settings_win.show_provider_tab()
+        else:
+            self.settings_win.load()
+            self.settings_win.show()
+            self.settings_win.raise_()
+
+    def _on_settings_saved(self) -> None:
+        if not self._needs_provider_setup:
+            return
+        if reload_provider(self.runtime, self.settings_path, self.secrets_path):
+            self._needs_provider_setup = False
+            self.bubble.append_message("tool", i18n.t("setup.provider_ready"))
 
     def _initial_avatar_pos(self, screen) -> tuple[int, int]:
         """Saved position if still on-screen, else the bottom-right default."""

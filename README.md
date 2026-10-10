@@ -1,6 +1,10 @@
 # NexaDesk — Desktop AI Assistant
 
-**NexaDesk** is an open-source desktop AI assistant for Linux and Windows: a local-first chat GUI, an animated pixel-art avatar mode, and built-in screen-control tools — all in one lightweight PySide6 app.
+[![CI](https://github.com/Xeakaes/NexaDesk/actions/workflows/ci.yml/badge.svg)](https://github.com/Xeakaes/NexaDesk/actions/workflows/ci.yml)
+[![Release](https://github.com/Xeakaes/NexaDesk/actions/workflows/release.yml/badge.svg)](https://github.com/Xeakaes/NexaDesk/actions/workflows/release.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/Xeakaes/NexaDesk/blob/main/LICENSE)
+
+**NexaDesk** is an open-source desktop AI assistant for Linux and Windows: a local-first chat GUI, an animated pixel-art avatar mode, and built-in screen-control tools — all in one PySide6 app.
 
 Run local models with **Ollama**, or connect cloud providers (**Groq, NVIDIA, Google, OpenAI-compatible**). Dark and light themes, Turkish and English UI, instant mode switching.
 

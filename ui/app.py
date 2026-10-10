@@ -11,10 +11,12 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import QTimer
+from PySide6.QtWidgets import QApplication, QMessageBox
 
 from core.bootstrap import build_runtime
 from core.paths import ensure_user_config
+from core.providers.base import ProviderError
 from ui.bridge import QtBridge
 from ui.chooser import ModeChooser
 from ui.fonts import load_fonts
@@ -22,7 +24,29 @@ from ui.history import HistoryStore, default_db_path
 from ui.i18n import i18n
 from ui.paths import SETTINGS_PATH, SECRETS_PATH, ui_json_path
 from ui.prefs import UiPrefs, load_prefs, save_prefs
+from ui.setup import UnconfiguredProvider, is_missing_key_error, reload_provider
 from ui.theme import apply_theme
+
+
+def _guide_provider_setup(win, runtime) -> None:
+    """First-run: explain the missing model, then open Settings on the provider tab."""
+    box = QMessageBox(win)
+    box.setIcon(QMessageBox.Icon.Information)
+    box.setWindowTitle(i18n.t("setup.missing_provider.title"))
+    box.setText(i18n.t("setup.missing_provider.message"))
+    box.setStandardButtons(QMessageBox.StandardButton.Ok)
+    box.exec()
+    win._open_settings()
+    sw = getattr(win, "_settings_win", None)
+    if sw is None:
+        return
+    if hasattr(sw, "show_provider_tab"):
+        sw.show_provider_tab()
+    saved = getattr(sw, "saved", None)
+    if saved is not None:
+        saved.connect(
+            lambda: reload_provider(runtime, SETTINGS_PATH, SECRETS_PATH)
+        )
 
 
 def main() -> int:
@@ -43,7 +67,16 @@ def main() -> int:
     if mode == "gui":
         from ui.gui.main_window import ChatWindow
 
-        runtime, bus, _session = build_runtime()
+        try:
+            runtime, bus, _session = build_runtime()
+            needs_setup = False
+        except ProviderError as exc:
+            if not is_missing_key_error(exc):
+                raise
+            # Fresh install: no API key yet. Boot with a placeholder provider
+            # and guide the user to Settings instead of dying.
+            runtime, bus, _session = build_runtime(provider=UnconfiguredProvider())
+            needs_setup = True
         history = HistoryStore(default_db_path())
         win = ChatWindow(
             runtime=runtime,
@@ -63,6 +96,8 @@ def main() -> int:
         app.aboutToQuit.connect(runtime.close)
         app.aboutToQuit.connect(history.close)
         win.show()
+        if needs_setup:
+            QTimer.singleShot(0, lambda: _guide_provider_setup(win, runtime))
         code = app.exec()
         os._exit(code)
     else:

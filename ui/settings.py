@@ -83,6 +83,7 @@ def merge_permissions(existing: dict, default: str, per_tool: dict) -> dict:
 class SettingsWindow(QWidget):
     language_changed = Signal(str)
     theme_changed = Signal(str)
+    saved = Signal()
 
     def __init__(
         self,
@@ -344,6 +345,14 @@ class SettingsWindow(QWidget):
         if theme != old.theme:
             self.theme_changed.emit(theme)
         self._status.setText(i18n.t("settings.save_restart_note"))
+        self.saved.emit()
+
+    def show_provider_tab(self) -> None:
+        """Load, raise the window, and jump to the provider tab (first-run setup)."""
+        self.load()
+        self._tabs.setCurrentIndex(1)
+        self.show()
+        self.raise_()
 
     def _update_build_enabled(self, *_a) -> None:
         ok = bool(self._pack_path.text().strip()) and bool(self._pack_name.text().strip())
@@ -375,10 +384,12 @@ class SettingsWindow(QWidget):
         # Build on a background thread so the UI stays responsive.
         self._pack_build.setEnabled(False)
         self.setCursor(Qt.CursorShape.WaitCursor)
-        self._pack_worker = _PackBuildWorker(Path(src), out, name, parent=self)
-        self._pack_worker.succeeded.connect(self._on_pack_built)
-        self._pack_worker.failed.connect(self._on_pack_failed)
-        self._pack_worker.start()
+        worker = _PackBuildWorker(Path(src), out, name, parent=self)
+        self._pack_worker = worker
+        worker.succeeded.connect(self._on_pack_built)
+        worker.failed.connect(self._on_pack_failed)
+        worker.finished.connect(worker.deleteLater)
+        worker.start()
 
     def _on_pack_built(self, name: str) -> None:
         self.unsetCursor()
