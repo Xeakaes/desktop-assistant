@@ -1,62 +1,66 @@
-# Desktop Assistant
+# NexaDesk — Desktop AI Assistant
 
-Desktop AI assistant — chat GUI, avatar mode, and built-in screen-control tools.
+**NexaDesk** is an open-source desktop AI assistant for Linux and Windows: a local-first chat GUI, an animated pixel-art avatar mode, and built-in screen-control tools — all in one lightweight PySide6 app.
 
-## Features
+Run local models with **Ollama**, or connect cloud providers (**Groq, NVIDIA, Google, OpenAI-compatible**). Dark and light themes, Turkish and English UI, instant mode switching.
 
-- **Chat (GUI) mode** — Ollama-style chat interface, tool calling, SQLite history
-- **Avatar mode** — pixel-art avatar, speech bubble, state animations (idle/thinking/working/speaking/error)
-- **Mode selection** — chosen on first launch; persisted to `config/ui.json`; switchable from the menu (via restart)
-- **Theme** — dark / light; instant switch
-- **Language** — Turkish / English; instant switch
-- **Screen control** — screenshot, OCR, mouse/keyboard, window management; the server ships embedded in the package, no separate install required
+## Why NexaDesk?
 
-## Installation
+- **Chat GUI** — Ollama-style interface with tool calling, SQLite history, right-click chat deletion, and a coral-accent dark/light design
+- **Avatar mode** — pixel-art character with speech bubble and state animations (idle / thinking / working / speaking / error)
+- **Screen control** — screenshot, OCR, mouse/keyboard, window management; the server ships embedded, zero extra install
+- **Local-first** — your keys stay in `config/secrets.json` (never committed); history lives in a local SQLite DB
+- **Provider flexible** — Ollama (fully local), Groq, NVIDIA NIM, Google Gemini, or any OpenAI-compatible endpoint
+- **TR / EN** — full bilingual UI with instant language switching
+
+## Install
 
 ### Linux (`.deb`)
 
 ```bash
-sudo dpkg -i desktop-assistant_<version>_amd64.deb
+sudo dpkg -i NexaDesk_<version>_amd64.deb
 ```
 
 ### Linux (portable tar.gz)
 
 ```bash
-tar -xzf desktop-assistant_<version>_linux_amd64.tar.gz
-./desktop-assistant/desktop-assistant
+tar -xzf NexaDesk_<version>_linux_amd64.tar.gz
+./NexaDesk/NexaDesk
 ```
 
 ### Windows (`.zip`)
 
-Extract `desktop-assistant_<version>_windows_x64.zip` and run `desktop-assistant.exe`.
+Extract `NexaDesk_<version>_windows_x64.zip` and run `NexaDesk.exe`.
 
-## First Run
+Prebuilt binaries for every release: [github.com/Xeakaes/NexaDesk/releases](https://github.com/Xeakaes/NexaDesk/releases)
 
-On first launch the app offers a mode choice (Chat GUI / Avatar). The selection is written to `config/ui.json` and can be changed from the right-click menu or the GUI sidebar.
+## First run
 
-Provider (Groq, NVIDIA, Google, Ollama, …) and API keys are configured in the **Settings** window.
+On first launch NexaDesk asks which mode to use (Chat GUI / Avatar). The choice is saved to `config/ui.json` and can be changed any time from the sidebar or right-click menu.
 
-## Configuration Locations
+Provider and API keys are configured in the **Settings** window (five tabs: General, Provider, Screen control, Permissions, Avatar).
 
-When running from the source tree (development):
+## Configuration locations
+
+Running from source (development):
 
 | File | Location |
 |---|---|
 | Settings | `config/settings.json` |
 | Secret keys | `config/secrets.json` (0600) |
 | UI preferences | `config/ui.json` |
-| History | `~/.local/share/desktop-assistant/history.db` |
+| Chat history | `~/.local/share/NexaDesk/history.db` |
 
-In a packaged (frozen) build, settings move to the user config directory:
+In a packaged build, settings move to the user config directory:
 
 | OS | Location |
 |---|---|
-| Linux | `~/.config/desktop-assistant/` |
-| Windows | `%APPDATA%\desktop-assistant\` |
+| Linux | `~/.config/NexaDesk/` |
+| Windows | `%APPDATA%\NexaDesk\` |
 
 `config/secrets.json` is never included in the package or the repository.
 
-## Building from Source
+## Build from source
 
 ```bash
 python3 -m venv .venv
@@ -71,76 +75,85 @@ python3 -m venv .venv
 bash packaging/build_linux.sh      # PyInstaller + tar.gz + deb (requires nfpm)
 ```
 
-### Screen Control
+### Screen control
 
-The screen-control client and server are embedded under `vendor/sc_server/`. When screen control is enabled and port 8745 is free, the app spawns itself as a subprocess with the `--serve-screen-control` flag. Tokens and API keys are stored in the user configuration directory.
+The screen-control client and server are embedded under `vendor/sc_server/`. When screen control is enabled and port 8745 is free, the app spawns itself as a subprocess with `--serve-screen-control`. Tokens and API keys are stored in the user configuration directory.
+
+## Tech stack
+
+Python 3.12 · PySide6 (Qt 6) · SQLite · Pillow · QSS theming · PyInstaller
 
 ## License
 
 MIT — see [LICENSE](LICENSE).
 
 ---
+
 ---
 
-# Masaüstü Asistan (Türkçe)
+# NexaDesk — Masaüstü AI Asistanı (Türkçe)
 
-Masaüstü AI asistanı — sohbet GUI'si, avatar modu ve yerleşik ekran kontrolü araçları.
+**NexaDesk**, Linux ve Windows için açık kaynaklı masaüstü AI asistanı: yerel çalışan sohbet arayüzü, animasyonlu piksel-art avatar modu ve yerleşik ekran kontrolü araçları — hepsi tek hafif PySide6 uygulamasında.
 
-## Özellikler
+Yerel modelleri **Ollama** ile çalıştırın veya bulut sağlayıcılarına bağlanın (**Groq, NVIDIA, Google, OpenAI-uyumlu**). Karanlık/açık tema, Türkçe/İngilizce arayüz, anında mod geçişi.
 
-- **Sohbet (GUI) modu** — Ollama tarzı sohbet arayüzü, araç (tool) çağırma, SQLite geçmiş
-- **Avatar modu** — pixel-art avatar, konuşma balonu, durum animasyonları (idle/thinking/working/speaking/error)
-- **Mod seçimi** — ilk açılışta seçim; `config/ui.json`'a kalıcı olarak yazılır; menüden anında geçiş (yeniden başlatma ile)
-- **Tema** — karanlık / açık; anında geçiş
-- **Dil** — Türkçe / İngilizce; anında geçiş
-- **Ekran kontrolü** — screenshot, OCR, fare/klavye, pencere yönetimi; sunucu paketin içinde gömülü olarak gelir, ayrı kurulum gerektirmez
+## NexaDesk neden?
+
+- **Sohbet (GUI) modu** — tool çağırma, SQLite geçmiş, sağ tıkla sohbet silme, mercan vurgulu karanlık/açık tasarım
+- **Avatar modu** — piksel-art karakter, konuşma balonu ve durum animasyonları (boşta / düşünüyor / çalışıyor / konuşuyor / hata)
+- **Ekran kontrolü** — screenshot, OCR, fare/klavye, pencere yönetimi; sunucu paketin içinde gömülü, ek kurulum yok
+- **Yerel öncelikli** — anahtarlarınız `config/secrets.json`'da kalır (asla commit edilmez); geçmiş yerel SQLite DB'de
+- **Sağlayıcı esnekliği** — Ollama (tamamen yerel), Groq, NVIDIA NIM, Google Gemini veya OpenAI-uyumlu herhangi bir uç nokta
+- **TR / EN** — tam iki dilli arayüz, anında dil değişimi
 
 ## Kurulum
 
 ### Linux (`.deb`)
 
 ```bash
-sudo dpkg -i desktop-assistant_<version>_amd64.deb
+sudo dpkg -i NexaDesk_<sürüm>_amd64.deb
 ```
 
 ### Linux (taşınabilir tar.gz)
 
 ```bash
-tar -xzf desktop-assistant_<version>_linux_amd64.tar.gz
-./desktop-assistant/desktop-assistant
+tar -xzf NexaDesk_<sürüm>_linux_amd64.tar.gz
+./NexaDesk/NexaDesk
 ```
 
 ### Windows (`.zip`)
 
-`desktop-assistant_<version>_windows_x64.zip` dosyasını çıkarıp `desktop-assistant.exe`'yi çalıştırın.
+`NexaDesk_<sürüm>_windows_x64.zip` dosyasını çıkarıp `NexaDesk.exe`'yi çalıştırın.
 
-## İlk Çalıştırma
+Hazır binary'ler: [github.com/Xeakaes/NexaDesk/releases](https://github.com/Xeakaes/NexaDesk/releases)
 
-Uygulama ilk açılışta mod seçimi sunar (Sohbet GUI / Avatar). Seçim `config/ui.json`'a yazılır; sağ tık menüsünden veya GUI kenar çubuğundan değiştirilebilir.
+## İlk çalıştırma
 
-Sağlayıcı (Groq, NVIDIA, Google, Ollama, …) ve API anahtarları **Ayarlar** penceresinden yapılandırılır.
+İlk açılışta NexaDesk hangi modda açılacağını sorar (Sohbet GUI / Avatar). Seçim `config/ui.json`'a yazılır; kenar çubuğundan veya sağ tık menüsünden her zaman değiştirilebilir.
 
-## Yapılandırma Konumları
+Sağlayıcı ve API anahtarları **Ayarlar** penceresinden yapılandırılır (beş sekme: Genel, Sağlayıcı, Ekran kontrolü, İzinler, Avatar).
 
-Kaynak ağaçtan (development) çalışırken:
+## Yapılandırma konumları
+
+Kaynak ağaçtan (geliştirme) çalışırken:
 
 | Dosya | Konum |
 |---|---|
 | Ayarlar | `config/settings.json` |
 | Gizli anahtarlar | `config/secrets.json` (0600) |
 | UI tercihleri | `config/ui.json` |
-| Geçmiş | `~/.local/share/desktop-assistant/history.db` |
+| Sohbet geçmişi | `~/.local/share/NexaDesk/history.db` |
 
-Paketlenmiş (frozen) sürümde ayarlar kullanıcı dizinine taşınır:
+Paketlenmiş sürümde ayarlar kullanıcı dizinine taşınır:
 
 | İşletim Sistemi | Konum |
 |---|---|
-| Linux | `~/.config/desktop-assistant/` |
-| Windows | `%APPDATA%\desktop-assistant\` |
+| Linux | `~/.config/NexaDesk/` |
+| Windows | `%APPDATA%\NexaDesk\` |
 
-`config/secrets.json` ne paketin içine ne de depoya dahil edilir.
+`config/secrets.json` ne pakete ne de depoya dahil edilir.
 
-## Kaynaktan Derleme
+## Kaynaktan derleme
 
 ```bash
 python3 -m venv .venv
@@ -149,15 +162,19 @@ python3 -m venv .venv
 .venv/bin/python -m ui.app         # uygulamayı başlat
 ```
 
-### Paket Oluşturma (Linux)
+### Paket oluşturma (Linux)
 
 ```bash
 bash packaging/build_linux.sh      # PyInstaller + tar.gz + deb (nfpm gerekir)
 ```
 
-### Ekran Kontrolü
+### Ekran kontrolü
 
 Ekran kontrolü istemcisi ve sunucusu `vendor/sc_server/` altında gömülüdür. Uygulama, ekran kontrolü etkinse ve port 8745 boşta değilse kendini `--serve-screen-control` bayrağıyla alt süreç olarak başlatır. Token ve API anahtarları kullanıcı yapılandırma dizininde saklanır.
+
+## Teknoloji yığını
+
+Python 3.12 · PySide6 (Qt 6) · SQLite · Pillow · QSS temalama · PyInstaller
 
 ## Lisans
 
