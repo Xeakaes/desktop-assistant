@@ -269,6 +269,11 @@ class AgentRuntime:
                                 sid, "user", "Image from tool result:",
                                 images=[image],
                             )
+                            # Bound retained images: superseded base64 blobs
+                            # are dropped from the session (memory + request size).
+                            self._session.trim_images(
+                                sid, self._config.max_history_images
+                            )
                         # No vision: image already stripped from tool content above.
         except TaskCancelled:
             self._events.publish("agent_cancelled", sid, tid, {"reason": "cancelled"})

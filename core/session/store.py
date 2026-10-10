@@ -39,3 +39,17 @@ class SessionStore:
 
     def messages(self, session_id: str) -> list[ChatMessage]:
         return list(self._messages.get(session_id, ()))
+
+    def trim_images(self, session_id: str, keep: int) -> None:
+        """Drop images from all but the most recent `keep` image-bearing messages.
+
+        Base64 data-URIs are large; keeping every screenshot forever leaks
+        memory and bloats every subsequent provider request.
+        """
+        keep = max(keep, 0)
+        keepers: list[ChatMessage] = []
+        for m in self._messages.get(session_id, ()):
+            if m.images:
+                keepers.append(m)
+        for m in keepers[:-keep] if keep else keepers:
+            m.images = None

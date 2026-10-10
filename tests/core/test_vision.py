@@ -132,3 +132,68 @@ def test_runtime_strips_image_without_vision():
     assert not any(m.images for m in msgs)
     tool_msgs = [m for m in msgs if m.role == "tool"]
     assert img_uri not in (tool_msgs[-1].content or "")
+
+
+def test_session_trim_images_keeps_most_recent():
+    from core.session.store import SessionStore
+
+    st = SessionStore()
+    sid = st.create_session()
+    for i in range(5):
+        st.add_message(sid, "user", f"shot {i}", images=[f"data:image/jpeg;base64,IMG{i}"])
+    st.trim_images(sid, keep=2)
+    assert [m.images for m in st.messages(sid)] == [
+        None, None, None,
+        ["data:image/jpeg;base64,IMG3"],
+        ["data:image/jpeg;base64,IMG4"],
+    ]
+
+
+def test_session_trim_images_keeps_all_when_under_limit():
+    from core.session.store import SessionStore
+
+    st = SessionStore()
+    sid = st.create_session()
+    st.add_message(sid, "user", "a", images=["data:image/jpeg;base64,A"])
+    st.add_message(sid, "user", "b")
+    st.add_message(sid, "user", "c", images=["data:image/jpeg;base64,C"])
+    st.trim_images(sid, keep=3)
+    msgs = st.messages(sid)
+    assert msgs[0].images == ["data:image/jpeg;base64,A"]
+    assert msgs[1].images is None
+    assert msgs[2].images == ["data:image/jpeg;base64,C"]
+
+
+def test_runtime_bounds_history_images():
+    """Repeated screenshots must not accumulate: only the most recent
+    max_history_images images survive in the session and in provider payloads."""
+    from core.providers.base import ProviderResponse, ToolCall
+    from core.tools.base import ToolResult
+    from tests.fakes import FakeProvider, FakeTool
+
+    imgs = [f"data:image/jpeg;base64,S{i}" for i in range(4)]
+    tool = FakeTool("screenshot", [
+        ToolResult(ok=True, data={"path": f"/tmp/{i}.jpg", "image": uri})
+        for i, uri in enumerate(imgs)
+    ])
+    provider = FakeProvider([
+        ProviderResponse(text=None, tool_calls=[ToolCall(id=f"c{i}", name="screenshot", arguments={})])
+        for i in range(4)
+    ] + [ProviderResponse(text="done", tool_calls=[])])
+    provider.supports_vision = True
+    rt = _screenshot_runtime(provider, tool)
+    rt.start_task("s1", "ekran gor")
+
+    # On the final model call only the 3 most recent images are attached.
+    final = provider.calls[-1].messages
+    attached = [m.images for m in final if m.images]
+    assert attached == [["data:image/jpeg;base64,S1"], ["data:image/jpeg;base64,S2"], ["data:image/jpeg;base64,S3"]]
+
+    # The store itself no longer holds the superseded base64 blobs.
+    stored = rt._session.messages("s1")
+    assert [m.images for m in stored if m.role == "user" and m.content == "Image from tool result:"] == [
+        None,
+        ["data:image/jpeg;base64,S1"],
+        ["data:image/jpeg;base64,S2"],
+        ["data:image/jpeg;base64,S3"],
+    ]
