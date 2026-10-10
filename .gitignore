@@ -12,3 +12,5 @@ build/
 *.spec.bak
 _version.txt
 artifacts/
+docs/plans/
+docs/specs/
