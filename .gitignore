@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 config/secrets.json
 config/ui.json
+config/.token
 vendor/sc_server/.token
 vendor/sc_server/.apikeys
 vendor/sc_server/logs/
@@ -10,3 +11,4 @@ dist/
 build/
 *.spec.bak
 _version.txt
+artifacts/
