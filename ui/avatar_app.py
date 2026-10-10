@@ -217,6 +217,8 @@ class App:
             self._on_finished("")
             msg = event.payload.get("message") or event.payload.get("error_code", "")
             code = event.payload.get("error_code", "")
+            if code == "rate_limited":
+                msg = i18n.t("chat.error_rate_limited")
             line = f"{i18n.t('chat.error_prefix')} ({code}): {msg}"
             self.bubble.append_message("assistant", line)
             self._history.append(self._sid, "assistant", line)

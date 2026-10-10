@@ -67,7 +67,81 @@ def test_spawn_skipped_when_port_open(monkeypatch):
             return False
 
     monkeypatch.setattr(entry.socket, "create_connection", lambda *a, **k: FakeSock())
+    monkeypatch.setattr(entry, "_server_healthy", lambda *a: True)
+    popped = []
+    monkeypatch.setattr(entry.subprocess, "Popen", lambda *a, **k: popped.append(a))
     assert entry.maybe_spawn_server({"screen_control": {"enabled": True}}) is None
+    assert popped == []
+
+
+def test_spawn_replaces_unhealthy_server(monkeypatch):
+    # Port is held by a stale/broken server: health check fails, so we kill it
+    # and spawn a fresh one.
+    probes = {"n": 0}
+
+    def port_open(*a):
+        probes["n"] += 1
+        return probes["n"] <= 1  # listening on first probe, freed after the kill
+
+    monkeypatch.setattr(entry, "_port_open", port_open)
+    monkeypatch.setattr(entry, "_server_healthy", lambda *a: False)
+    killed = []
+    monkeypatch.setattr(entry, "_kill_stale_server", lambda port: killed.append(port))
+
+    class P:
+        pid = 555
+
+        def __init__(self, *a, **k):
+            pass
+
+    monkeypatch.setattr(entry.subprocess, "Popen", P)
+    pid = entry.maybe_spawn_server({"screen_control": {"enabled": True, "port": 8745}})
+    assert pid == "555"
+    assert killed == [8745]
+
+
+def test_server_healthy_true_on_200(monkeypatch):
+    class R:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    monkeypatch.setattr(entry.urllib.request, "urlopen", lambda *a, **k: R())
+    assert entry._server_healthy("127.0.0.1", 8745) is True
+
+
+def test_server_healthy_true_on_401(monkeypatch):
+    import urllib.error
+
+    def raise401(*a, **k):
+        raise urllib.error.HTTPError("http://x", 401, "no", None, None)
+
+    monkeypatch.setattr(entry.urllib.request, "urlopen", raise401)
+    assert entry._server_healthy("127.0.0.1", 8745) is True
+
+
+def test_server_healthy_false_on_500(monkeypatch):
+    import urllib.error
+
+    def raise500(*a, **k):
+        raise urllib.error.HTTPError("http://x", 500, "err", None, None)
+
+    monkeypatch.setattr(entry.urllib.request, "urlopen", raise500)
+    assert entry._server_healthy("127.0.0.1", 8745) is False
+
+
+def test_server_healthy_false_on_dead_socket(monkeypatch):
+    import urllib.error
+
+    def raise_urlerror(*a, **k):
+        raise urllib.error.URLError("refused")
+
+    monkeypatch.setattr(entry.urllib.request, "urlopen", raise_urlerror)
+    assert entry._server_healthy("127.0.0.1", 8745) is False
 
 
 def test_spawn_frozen_passes_host_port(monkeypatch, tmp_path):

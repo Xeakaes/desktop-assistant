@@ -7,10 +7,11 @@ from core.providers.openai_compat import OpenAICompatProvider
 
 
 class FakeResponse:
-    def __init__(self, payload, status_code=200, text=""):
+    def __init__(self, payload, status_code=200, text="", headers=None):
         self._payload = payload
         self.status_code = status_code
         self.text = text if text else json.dumps(payload)
+        self.headers = headers or {}
 
     def json(self):
         return self._payload
@@ -177,3 +178,57 @@ def test_openai_vision_false_strips_images_from_wire():
     p.complete(msgs, [], CancellationToken())
     wire = session.posts[0]["json"]["messages"]
     assert all(not isinstance(m.get("content"), list) for m in wire)
+
+
+def _rate_limited():
+    return FakeResponse(
+        {"error": {"message": "Too Many Requests"}},
+        status_code=429,
+        headers={"Retry-After": "0"},
+    )
+
+
+def test_openai_429_retries_then_succeeds():
+    session = ScriptedSession([
+        _rate_limited(),
+        FakeResponse(_payload(content="recovered")),
+    ])
+    p = OpenAICompatProvider("http://api", "key", "m", session=session)
+    r = p.complete(_msgs(), [], CancellationToken())
+    assert r.text == "recovered"
+    assert len(session.posts) == 2
+
+
+def test_openai_429_exhausts_retries_with_rate_limited_code():
+    # 1 initial + 3 retries, all rate-limited, then a clean ProviderError.
+    session = ScriptedSession([_rate_limited() for _ in range(4)])
+    p = OpenAICompatProvider("http://api", "key", "m", session=session)
+    with pytest.raises(ProviderError) as ei:
+        p.complete(_msgs(), [], CancellationToken())
+    assert ei.value.error_code == "rate_limited"
+    # Not the raw provider URL.
+    assert "groq.com" not in ei.value.message
+    assert len(session.posts) == 4
+
+
+def test_openai_429_stops_retrying_when_cancelled():
+    session = ScriptedSession([_rate_limited()])
+    p = OpenAICompatProvider("http://api", "key", "m", session=session)
+    cancel = CancellationToken()
+    cancel.cancel()
+    with pytest.raises(ProviderError) as ei:
+        p.complete(_msgs(), [], cancel)
+    assert ei.value.error_code == "cancelled"
+    # Gave up after the first rate-limited response — no backoff loop.
+    assert len(session.posts) == 1
+
+
+def test_openai_529_overloaded_is_also_retried():
+    session = ScriptedSession([
+        FakeResponse({}, status_code=529, headers={"Retry-After": "0"}),
+        FakeResponse(_payload(content="ok")),
+    ])
+    p = OpenAICompatProvider("http://api", "key", "m", session=session)
+    r = p.complete(_msgs(), [], CancellationToken())
+    assert r.text == "ok"
+    assert len(session.posts) == 2

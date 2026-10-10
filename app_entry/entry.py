@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import os
+import signal
 import socket
 import subprocess
 import sys
+import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 # Bootstrap: allow running as a plain script (python app_entry/entry.py)
@@ -41,17 +45,100 @@ def serve_screen_control(argv: list[str] | None = None) -> int:
     return 0
 
 
+def _port_open(host: str, port: int) -> bool:
+    try:
+        with socket.create_connection((host, port), timeout=0.3):
+            return True
+    except OSError:
+        return False
+
+
+def _screen_control_token() -> str | None:
+    try:
+        p = config_dir() / ".token"
+        if p.exists():
+            return p.read_text(encoding="utf-8").strip() or None
+    except OSError:
+        pass
+    return None
+
+
+def _server_healthy(host: str, port: int) -> bool:
+    """True when the server on the port answers without a server-side error.
+
+    A stale server left over from a previous install (or a bad shutdown) can
+    still hold the port while failing every capture call with 500; blindly
+    reusing it would silently break screenshot/OCR. Any 4xx means the HTTP
+    stack is fine (we may just lack the token), so only 5xx or a dead socket
+    count as unhealthy.
+    """
+    req = urllib.request.Request(
+        f"http://{host}:{port}/api/info",
+        headers={"X-Auth-Token": _screen_control_token() or ""},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=1.0) as resp:
+            return resp.status < 500
+    except urllib.error.HTTPError as exc:
+        return exc.code < 500
+    except (urllib.error.URLError, OSError):
+        return False
+
+
+def _kill_stale_server(port: int) -> None:
+    """Best-effort terminate a leftover screen-control process on the port."""
+    pattern = rf"serve-screen-control.*--port[= ]{port}\b"
+    try:
+        out = subprocess.run(
+            ["pgrep", "-f", pattern],
+            capture_output=True,
+            text=True,
+            timeout=3,
+            check=False,
+        )
+        pids = [
+            int(p)
+            for p in out.stdout.split()
+            if p.isdigit() and int(p) != os.getpid()
+        ]
+    except (OSError, subprocess.TimeoutExpired):
+        return
+    for sig in (signal.SIGTERM, signal.SIGKILL):
+        alive = []
+        for pid in pids:
+            try:
+                os.kill(pid, sig)
+                alive.append(pid)
+            except OSError:
+                pass
+        if sig is signal.SIGTERM:
+            time.sleep(0.4)
+            pids = [
+                pid
+                for pid in alive
+                if os.path.exists(f"/proc/{pid}")
+            ]
+            if not pids:
+                return
+
+
 def maybe_spawn_server(settings: dict, exe_path: str | None = None) -> str | None:
     sc = settings.get("screen_control") or {}
     if not sc.get("enabled"):
         return None
     host = sc.get("host", "127.0.0.1")
     port = int(sc.get("port", 8745))
-    try:
-        with socket.create_connection((host, port), timeout=0.3):
-            return None  # already listening
-    except OSError:
-        pass
+    listening = _port_open(host, port)
+    if listening:
+        if _server_healthy(host, port):
+            return None  # healthy server already running — reuse it
+        # Something holds the port but fails its endpoints (stale server from
+        # a previous run). Replace it, otherwise screenshot/OCR keep 500ing.
+        _kill_stale_server(port)
+        for _ in range(20):
+            if not _port_open(host, port):
+                break
+            time.sleep(0.1)
 
     env = {**os.environ, "SCREEN_CONTROL_DATA_DIR": str(config_dir())}
     if is_frozen():

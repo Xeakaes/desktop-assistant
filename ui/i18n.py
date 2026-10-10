@@ -36,6 +36,10 @@ STRINGS: dict[str, dict[str, str]] = {
     "chat.tool_prefix": {"tr": "Araç", "en": "Tool"},
     "chat.cancelled": {"tr": "Görev iptal edildi.", "en": "Task cancelled."},
     "chat.error_prefix": {"tr": "Hata", "en": "Error"},
+    "chat.error_rate_limited": {
+        "tr": "Model sağlayıcısı istek limitini aştı (429). Lütfen birkaç saniye sonra yeniden deneyin.",
+        "en": "The model provider rate limit was reached (429). Please try again in a moment.",
+    },
     "chat.empty_title": {"tr": "Merhaba! Bir sohbet başlat.", "en": "Hi! Start a chat."},
     "chat.empty_hint": {
         "tr": "Asistana ne sormak istersiniz?",
