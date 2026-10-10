@@ -43,6 +43,7 @@ REQUIRED_OBJECTNAMES: tuple[str, ...] = (
     "main",
     "sidebar",
     "chat",
+    "msg_area",
     "chat_input",
     "msg_user",
     "msg_assistant",
@@ -82,6 +83,7 @@ QListWidget::item {{ padding: 8px; border-radius: 10px; }}
 QListWidget::item:hover {{ background: {t['surface_hover']}; }}
 QListWidget::item:selected {{ background: {t['accent']}; color: {t['on_accent']}; }}
 QScrollArea#chat {{ background: {t['bg']}; border: none; }}
+QWidget#msg_area {{ background: {t['bg']}; }}
 QFrame#empty_state {{ background: transparent; border: none; }}
 QFrame#msg_user {{ background: {t['bubble_user']}; border-radius: 14px; }}
 QFrame#msg_assistant {{ background: {t['bubble_assistant']}; border-radius: 14px; }}

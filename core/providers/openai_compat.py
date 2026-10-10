@@ -31,10 +31,12 @@ def to_provider_tools(schemas: list[dict]) -> list[dict]:
     ]
 
 
-def serialize_messages(messages: list[ChatMessage]) -> list[dict]:
+def serialize_messages(
+    messages: list[ChatMessage], include_images: bool = True
+) -> list[dict]:
     wire: list[dict] = []
     for m in messages:
-        if m.images:
+        if m.images and include_images:
             # Vision: content becomes a list of parts (text + image_url).
             parts: list[dict] = [{"type": "text", "text": m.content or ""}]
             for uri in m.images:
@@ -73,12 +75,14 @@ class OpenAICompatProvider(ModelProvider):
         model: str,
         timeout_s: float = 60.0,
         session: requests.Session | None = None,
+        supports_vision: bool = True,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.model = model
         self.timeout_s = timeout_s
         self._session = session or requests.Session()
+        self.supports_vision = supports_vision
 
     def complete(
         self,
@@ -88,7 +92,7 @@ class OpenAICompatProvider(ModelProvider):
     ) -> ProviderResponse:
         body: dict = {
             "model": self.model,
-            "messages": serialize_messages(messages),
+            "messages": self._serialize(messages),
         }
         tools = to_provider_tools(schemas)
         if tools:
@@ -101,6 +105,21 @@ class OpenAICompatProvider(ModelProvider):
                 timeout=self.timeout_s,
                 headers=headers,
             )
+            if (
+                resp.status_code == 400
+                and self.supports_vision
+                and any(m.images for m in messages)
+            ):
+                # Text-only models reject image_url parts with a 400.
+                # Retry once without images and disable vision for the session.
+                self.supports_vision = False
+                body["messages"] = self._serialize(messages, include_images=False)
+                resp = self._session.post(
+                    f"{self.base_url}/chat/completions",
+                    json=body,
+                    timeout=self.timeout_s,
+                    headers=headers,
+                )
             resp.raise_for_status()
             payload = resp.json()
         except requests.Timeout as exc:
@@ -122,3 +141,10 @@ class OpenAICompatProvider(ModelProvider):
                 )
             )
         return ProviderResponse(text=message.get("content"), tool_calls=tool_calls)
+
+    def _serialize(
+        self, messages: list[ChatMessage], include_images: bool | None = None
+    ) -> list[dict]:
+        if include_images is None:
+            include_images = self.supports_vision
+        return serialize_messages(messages, include_images=include_images)

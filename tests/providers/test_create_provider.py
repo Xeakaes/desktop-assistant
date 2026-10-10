@@ -128,3 +128,27 @@ def test_create_google_empty_url_uses_default():
         {"google_api_key": "AIza-x"},
     )
     assert "generativelanguage.googleapis.com" in p.base_url
+
+
+def test_create_provider_vision_flag_false():
+    p = create_provider(
+        {"provider": {"type": "groq", "model": "m", "vision": False}},
+        {"groq_api_key": "gsk_x"},
+    )
+    assert p.supports_vision is False
+
+
+def test_create_provider_vision_default_true():
+    p = create_provider(
+        {"provider": {"type": "groq", "model": "m"}},
+        {"groq_api_key": "gsk_x"},
+    )
+    assert p.supports_vision is True
+
+
+def test_create_ollama_vision_flag_false():
+    p = create_provider(
+        {"provider": {"type": "ollama", "model": "m", "vision": False}},
+        {},
+    )
+    assert p.supports_vision is False

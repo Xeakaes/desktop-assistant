@@ -148,6 +148,7 @@ class ChatWindow(QMainWindow):
         empty_lay.addWidget(self._empty_title)
         empty_lay.addWidget(self._empty_hint)
         self._msg_area = QWidget()
+        self._msg_area.setObjectName("msg_area")
         self._msg_layout = QVBoxLayout(self._msg_area)
         self._msg_layout.addWidget(self._empty_state)
         self._msg_layout.addStretch(1)
@@ -214,6 +215,7 @@ class ChatWindow(QMainWindow):
         QShortcut(
             QKeySequence(Qt.Key.Key_Delete), self._sessions,
             activated=self._on_session_menu_keyboard,
+            context=Qt.ShortcutContext.WidgetShortcut,
         )
 
         self.retranslate()
@@ -333,8 +335,6 @@ class ChatWindow(QMainWindow):
     def _on_session_menu(self, pos) -> None:
         item = self._sessions.itemAt(pos)
         if item is None:
-            item = self._sessions.currentItem()
-        if item is None:
             return
         menu = QMenu(self._sessions)
         act = menu.addAction(i18n.t("sessions.delete"))
@@ -444,7 +444,8 @@ class ChatWindow(QMainWindow):
             if text and event.session_id == self._session_id:
                 self._signals.assistant.emit(text)
         elif name == "agent_finished":
-            self._signals.finished.emit()
+            if event.session_id == self._session_id:
+                self._signals.finished.emit()
         elif name == "agent_error":
             code = payload.get("error_code", "")
             msg = payload.get("message") or code

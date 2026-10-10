@@ -82,12 +82,14 @@ class OllamaProvider(ModelProvider):
         api_key: str | None = None,
         timeout_s: float = 60.0,
         session: requests.Session | None = None,
+        supports_vision: bool = True,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.api_key = api_key
         self.timeout_s = timeout_s
         self._session = session or requests.Session()
+        self.supports_vision = supports_vision
 
     def complete(
         self,
@@ -95,6 +97,18 @@ class OllamaProvider(ModelProvider):
         schemas: list[dict],
         cancel: CancellationToken,
     ) -> ProviderResponse:
+        if not self.supports_vision:
+            messages = [
+                ChatMessage(
+                    role=m.role,
+                    content=m.content,
+                    tool_call_id=m.tool_call_id,
+                    name=m.name,
+                    tool_calls=m.tool_calls,
+                    images=None,
+                )
+                for m in messages
+            ]
         body: dict = {
             "model": self.model,
             "messages": serialize_messages(messages),

@@ -80,3 +80,66 @@ def test_openai_http_error_maps_provider_error():
     with pytest.raises(ProviderError) as ei:
         p.complete(_msgs(), [], CancellationToken())
     assert ei.value.error_code == "provider_error"
+
+
+class ScriptedSession:
+    """Returns each queued response/exc in order and records posts."""
+
+    def __init__(self, steps):
+        self.steps = list(steps)
+        self.posts = []
+
+    def post(self, url, json=None, timeout=None, headers=None):
+        import copy
+
+        self.posts.append({
+            "url": url,
+            "json": copy.deepcopy(json),
+            "timeout": timeout,
+            "headers": headers,
+        })
+        step = self.steps.pop(0)
+        if isinstance(step, Exception):
+            raise step
+        return step
+
+
+def test_openai_400_with_images_retries_without_images():
+    img_msgs = [ChatMessage(role="user", content="look", images=["data:image/png;base64,AAA"])]
+    session = ScriptedSession([
+        FakeResponse({"error": "model does not support image input"}, status_code=400),
+        FakeResponse(_payload(content="ok, text only")),
+    ])
+    p = OpenAICompatProvider("http://api", "key", "text-model", session=session)
+    r = p.complete(img_msgs, [], CancellationToken())
+    assert r.text == "ok, text only"
+    assert len(session.posts) == 2
+    # First attempt carried the image...
+    assert any(
+        isinstance(m.get("content"), list) for m in session.posts[0]["json"]["messages"]
+    )
+    # ...the retry did not.
+    assert all(
+        not isinstance(m.get("content"), list) for m in session.posts[1]["json"]["messages"]
+    )
+    # Vision is disabled for the rest of the session.
+    assert p.supports_vision is False
+
+
+def test_openai_400_without_images_still_raises():
+    session = ScriptedSession([FakeResponse({}, status_code=400)])
+    p = OpenAICompatProvider("http://api", "key", "m", session=session)
+    with pytest.raises(ProviderError):
+        p.complete(_msgs(), [], CancellationToken())
+    assert len(session.posts) == 1
+
+
+def test_openai_vision_false_strips_images_from_wire():
+    session = ScriptedSession([FakeResponse(_payload(content="ok"))])
+    p = OpenAICompatProvider(
+        "http://api", "key", "m", session=session, supports_vision=False
+    )
+    msgs = [ChatMessage(role="user", content="look", images=["data:image/png;base64,AAA"])]
+    p.complete(msgs, [], CancellationToken())
+    wire = session.posts[0]["json"]["messages"]
+    assert all(not isinstance(m.get("content"), list) for m in wire)

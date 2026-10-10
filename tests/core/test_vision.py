@@ -164,9 +164,9 @@ def test_session_trim_images_keeps_all_when_under_limit():
     assert msgs[2].images == ["data:image/jpeg;base64,C"]
 
 
-def test_runtime_bounds_history_images():
+def test_runtime_keeps_only_last_image():
     """Repeated screenshots must not accumulate: only the most recent
-    max_history_images images survive in the session and in provider payloads."""
+    image survives in the session and in provider payloads."""
     from core.providers.base import ProviderResponse, ToolCall
     from core.tools.base import ToolResult
     from tests.fakes import FakeProvider, FakeTool
@@ -184,16 +184,14 @@ def test_runtime_bounds_history_images():
     rt = _screenshot_runtime(provider, tool)
     rt.start_task("s1", "ekran gor")
 
-    # On the final model call only the 3 most recent images are attached.
+    # On the final model call only the latest image is attached.
     final = provider.calls[-1].messages
     attached = [m.images for m in final if m.images]
-    assert attached == [["data:image/jpeg;base64,S1"], ["data:image/jpeg;base64,S2"], ["data:image/jpeg;base64,S3"]]
+    assert attached == [["data:image/jpeg;base64,S3"]]
 
     # The store itself no longer holds the superseded base64 blobs.
     stored = rt._session.messages("s1")
     assert [m.images for m in stored if m.role == "user" and m.content == "Image from tool result:"] == [
-        None,
-        ["data:image/jpeg;base64,S1"],
-        ["data:image/jpeg;base64,S2"],
+        None, None, None,
         ["data:image/jpeg;base64,S3"],
     ]
