@@ -50,6 +50,8 @@ class _ScreenControlTool(Tool):
 class _ScreenshotTool(_ScreenControlTool):
     def execute(self, arguments: dict, cancel: CancellationToken) -> ToolResult:
         def run(client, args):
+            import base64
+            import io
             import tempfile
             from pathlib import Path
 
@@ -57,7 +59,28 @@ class _ScreenshotTool(_ScreenControlTool):
                 Path(tempfile.gettempdir()) / "desktop-assistant-shot.jpg"
             )
             client.screenshot(output=path)
-            return {"path": path}
+            data = {"path": path}
+            # Attach a resized base64 data-URI so vision models can see it.
+            try:
+                from PIL import Image
+
+                img = Image.open(path)
+                img.load()
+                img.thumbnail((1280, 1280))
+                buf = io.BytesIO()
+                try:
+                    img.convert("RGB").save(buf, format="JPEG", quality=85)
+                    mime = "image/jpeg"
+                except Exception:
+                    buf = io.BytesIO()
+                    img.save(buf, format="PNG")
+                    mime = "image/png"
+                data["image"] = f"data:{mime};base64,{base64.b64encode(buf.getvalue()).decode()}"
+            except Exception:
+                # Vision attach is best-effort; path alone is still useful.
+                pass
+            return data
+
         return self._run(arguments, cancel, run)
 
 

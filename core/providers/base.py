@@ -28,6 +28,7 @@ class ChatMessage:
     tool_call_id: str | None = None
     name: str | None = None
     tool_calls: list[ToolCall] | None = None
+    images: list[str] | None = None  # data-URIs for vision models
 
 
 @dataclass
@@ -45,6 +46,7 @@ class ProviderError(Exception):
 
 class ModelProvider(ABC):
     supports_tools: bool = False
+    supports_vision: bool = False
 
     @abstractmethod
     def complete(

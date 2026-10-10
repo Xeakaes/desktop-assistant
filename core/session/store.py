@@ -24,6 +24,7 @@ class SessionStore:
         tool_calls: list[ToolCall] | None = None,
         tool_call_id: str | None = None,
         name: str | None = None,
+        images: list[str] | None = None,
     ) -> None:
         self._messages.setdefault(session_id, []).append(
             ChatMessage(
@@ -32,6 +33,7 @@ class SessionStore:
                 tool_call_id=tool_call_id,
                 name=name,
                 tool_calls=tool_calls,
+                images=images,
             )
         )
 

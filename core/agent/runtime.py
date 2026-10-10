@@ -254,10 +254,22 @@ class AgentRuntime:
                             "agent_cancelled", sid, tid, {"reason": "cancelled"}
                         )
                         return
+                    # Vision plumbing: pull any image off the tool result.
+                    image = None
+                    if result.ok and isinstance(result.data, dict):
+                        image = result.data.pop("image", None)
                     self._session.add_message(
                         sid, "tool", _result_content(result),
                         tool_call_id=call.id, name=call.name,
                     )
+                    if image:
+                        if self._provider.supports_vision:
+                            # Attach as a user message so the model can see it.
+                            self._session.add_message(
+                                sid, "user", "Image from tool result:",
+                                images=[image],
+                            )
+                        # No vision: image already stripped from tool content above.
         except TaskCancelled:
             self._events.publish("agent_cancelled", sid, tid, {"reason": "cancelled"})
 
