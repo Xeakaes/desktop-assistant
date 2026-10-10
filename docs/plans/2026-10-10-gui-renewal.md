@@ -25,11 +25,12 @@
 
 Failure modes the spec implies that are most likely to bite a user; each is pinned to the task that owns the code:
 
-1. **Deleting the active session while a task is running** — the task must be cancelled first, and the late `agent_cancelled` signal must not append to (or crash on) the deleted session. Pinned in Task 5 (`test_delete_active_while_running_no_late_append`).
+1. **Deleting the active session while a task is running** — the task must be cancelled first, and late events (`assistant_message`, `agent_cancelled`, `agent_finished`) from the old session must not land in a newly created session. Guard: handlers compare `event.session_id` to `self._session_id` and drop mismatches (the bus stamps every event with both ids). Pinned in Task 5 (`test_delete_active_while_running_no_late_append`, including the delete→send-new→late-signal sequence).
 2. **After a delete, the next send must create a fresh session id**, never resurrect the deleted one. Pinned in Task 5 (`test_send_after_delete_creates_new_session`).
-3. **Focus rings must not resize widgets** — every focusable selector carries a 2px border in its normal state. Pinned in Task 1 (`test_focus_rules_reserve_two_pixel_border`).
-4. **WCAG AA pairs are pinned, not aspirational** — light `#FFFFFF` on `#D1433B`, dark `#1A0E0E` on `#F87171`; token parity dark↔light. Pinned in Task 1 (`test_accent_contrast_pairs_pinned`, `test_themes_have_identical_token_keys`).
-5. **Nunito must actually load** (id != -1) and a missing file must degrade gracefully (return -1, app still starts). Pinned in Task 2 (`test_load_fonts_adds_application_font`, `test_load_fonts_missing_file_returns_minus_one`).
+3. **Focus rings must be visible** — filled buttons swap their 2px border to `fg` on focus (`accent`→`accent_hover` is ~1.2:1); inputs/combos/outline swap to `accent` (>= 3:1 vs background). Every focusable selector carries `border: 2px` in its normal state. Pinned in Task 1 (`test_focus_rules_per_selector`).
+4. **Contrast is computed, not pinned by hex** — a `contrast(a, b)` WCAG helper asserts ratios: text pairs >= 4.5 (`fg/bg`, `on_accent/accent`, `on_danger/danger`, `fg_muted/surface`), UI pairs >= 3 (`input_border/bg`, `input_border/surface`). Pinned in Task 1 (`test_contrast_ratios_meet_thresholds`).
+5. **Nunito must actually load as "Nunito"** — static Regular+Bold files bundled, `applicationFontFamilies` contains "Nunito", `app.setFont` covers non-child windows (dialogs, menus), and a missing file degrades to -1 without raising. Pinned in Task 2 (`test_load_fonts_registers_nunito_family`, `test_load_fonts_missing_file_returns_minus_one`).
+6. **QSS parse errors are silent in Qt** — a `qInstallMessageHandler` capture in the theme test fails the suite on "Could not parse stylesheet". Pinned in Task 1 (`test_qss_parses_without_qt_warnings`).
 
 ---
 
@@ -58,26 +59,73 @@ def test_themes_have_identical_token_keys():
     assert set(THEMES["dark"]) == expected
 
 
-def test_accent_contrast_pairs_pinned():
-    # Spec §4.1 / §6: AA-passing pairs computed in the design review.
-    assert THEMES["light"]["accent"] == "#D1433B"
-    assert THEMES["light"]["on_accent"] == "#FFFFFF"
-    assert THEMES["light"]["accent_hover"] == "#B93530"
-    assert THEMES["dark"]["accent"] == "#F87171"
-    assert THEMES["dark"]["on_accent"] == "#1A0E0E"
-    assert THEMES["dark"]["bg"] == "#0D0D0D"
-    assert THEMES["dark"]["border"] == "#2E2E2E"
-    assert THEMES["dark"]["input_border"] == "#5C5C62"
-    assert THEMES["light"]["input_border"] == "#8E8E93"
+def _srgb_to_lin(c: float) -> float:
+    return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
 
 
-def test_focus_rules_reserve_two_pixel_border():
+def contrast(hex_a: str, hex_b: str) -> float:
+    """WCAG 2.1 contrast ratio between two #rrggbb colors."""
+    def lum(h: str) -> float:
+        r, g, b = (int(h[i : i + 2], 16) / 255 for i in (1, 3, 5))
+        return 0.2126 * _srgb_to_lin(r) + 0.7152 * _srgb_to_lin(g) + 0.0722 * _srgb_to_lin(b)
+
+    la, lb = lum(hex_a), lum(hex_b)
+    hi, lo = max(la, lb), min(la, lb)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def test_contrast_ratios_meet_thresholds():
+    # Text pairs >= 4.5; UI-component pairs >= 3 (spec section 6).
+    for name in ("dark", "light"):
+        t = THEMES[name]
+        assert contrast(t["fg"], t["bg"]) >= 4.5, (name, "fg/bg")
+        assert contrast(t["on_accent"], t["accent"]) >= 4.5, (name, "on_accent/accent")
+        assert contrast(t["on_danger"], t["danger"]) >= 4.5, (name, "on_danger/danger")
+        assert contrast(t["fg_muted"], t["surface"]) >= 4.5, (name, "fg_muted/surface")
+        assert contrast(t["input_border"], t["bg"]) >= 3.0, (name, "input_border/bg")
+        assert contrast(t["input_border"], t["surface"]) >= 3.0, (name, "input_border/surface")
+
+
+def test_focus_rules_per_selector():
+    import re
+
     for name in ("dark", "light"):
         style = qss(name)
-        # Focusable selectors keep a 2px border in the normal state so the
-        # :focus color swap cannot change layout size (spec §4.4).
-        assert "border: 2px" in style
-        assert ":focus" in style
+        # Filled buttons: focus swaps the reserved 2px border to fg so the
+        # change is visible against the accent fill (accent->accent_hover
+        # is ~1.2:1). Inputs/combos/outline swap to accent (>= 3:1 vs bg).
+        m = re.search(r"(?:^|\n)QPushButton\s*\{[^}]*\}", style)
+        assert m and "border: 2px" in m.group(0), name
+        m = re.search(r"(?:^|\n)QPushButton:focus\s*\{[^}]*\}", style)
+        assert m and THEMES[name]["fg"] in m.group(0), name
+        for sel in ("QPlainTextEdit#chat_input, QLineEdit", "QComboBox"):
+            m = re.search(rf"(?:^|\n){re.escape(sel)}\s*\{{[^}}]*\}}", style)
+            assert m and "border: 2px" in m.group(0), (name, sel)
+
+
+def test_qss_parses_without_qt_warnings():
+    """Qt reports broken stylesheets only via the message handler; capture it."""
+    import sys
+
+    from PySide6.QtCore import qInstallMessageHandler
+    from PySide6.QtWidgets import QApplication
+
+    app = QApplication.instance() or QApplication([])
+    captured: list[str] = []
+
+    def _handler(mode, ctx, msg):
+        captured.append(msg)
+
+    prev = qInstallMessageHandler(_handler)
+    try:
+        for name in ("dark", "light"):
+            app.setStyleSheet(qss(name))
+            app.processEvents()
+    finally:
+        qInstallMessageHandler(prev)
+        app.setStyleSheet("")
+    parse_errors = [m for m in captured if "Could not parse stylesheet" in m]
+    assert not parse_errors, parse_errors
 
 
 def test_qss_has_scrollbar_tabs_and_outline():
@@ -107,7 +155,7 @@ Expected: FAIL — new token keys missing, `#D1433B` not found, `QScrollBar` not
   - `QListWidget::item` — padding 8px, `border-radius: 10px`; `:hover` → `surface_hover`; `:selected` → accent fill + `on_accent` text.
   - `QFrame#empty_state` — transparent; inner labels: title `fg`, hint `fg_muted`.
   - `QPushButton#outline` — transparent fill, `border: 2px solid input_border`, `fg` text; `:hover` → `surface_hover` background; `:focus` → border color `accent`.
-  - Global `QPushButton` — keep accent fill; give it `border: 2px solid accent` (reserved focus ring) with `:focus { border-color: accent_hover }`.
+  - Global `QPushButton` — accent fill; `border: 2px solid accent` (reserved focus ring); `:focus { border-color: fg }` (visible against the accent fill).
   - `QPlainTextEdit#chat_input`, `QLineEdit`, `QComboBox` — `border: 2px solid input_border`, `:focus { border-color: accent }`, radius 10px.
   - `QPushButton#danger` — `background: danger; color: on_danger; border: 2px solid danger`.
   - `QScrollBar:vertical` — width 8px, transparent background, handle `surface_hover` with `border-radius: 4px`, `:hover` handle → `input_border`; horizontal analog.
@@ -136,7 +184,9 @@ git commit -m "feat(theme): pastel/near-black palette, focus rings, scrollbar, t
 ### Task 2: Bundle and load Nunito
 
 **Files:**
-- Create: `assets/fonts/Nunito.ttf`
+- Create: `assets/fonts/Nunito-Regular.ttf`
+- Create: `assets/fonts/Nunito-Bold.ttf`
+- Create: `assets/fonts/OFL.txt` (license text; OFL requires it ships with the font)
 - Create: `ui/fonts.py`
 - Modify: `ui/app.py:27-33` (main(), after QApplication creation)
 - Modify: `ui/avatar_app.py` (main(), after QApplication creation)
@@ -144,33 +194,45 @@ git commit -m "feat(theme): pastel/near-black palette, focus rings, scrollbar, t
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: `load_fonts(app) -> int` in `ui/fonts.py` — returns the QFontDatabase font id, or `-1` when the file is missing or fails to load. Never raises. Called once per process from both entry points.
+- Produces: `load_fonts(app) -> int` in `ui/fonts.py` — loads BOTH static files via `QFontDatabase.addApplicationFont`, then `app.setFont(QFont("Nunito"))` so windows that are not children of `#main` (dialogs, menus, ModeChooser) also get the font. Returns the Regular font id, or `-1` when the Regular file is missing or fails to load. Never raises. Called once per process from both entry points.
 
-- [ ] **Step 1: Download the font**
+- [ ] **Step 1: Download the static font files and license**
+
+Static instances, not the variable font: Qt's variable-weight support varies by version and Bold would fall back to synthetic bold. The design only uses Normal and Bold (spec §4.2).
 
 ```bash
 mkdir -p assets/fonts
-curl -L -o assets/fonts/Nunito.ttf \
-  "https://raw.githubusercontent.com/google/fonts/main/ofl/nunito/Nunito%5Bwght%5D.ttf"
-ls -la assets/fonts/Nunito.ttf
+curl -L -o assets/fonts/Nunito-Regular.ttf \
+  "https://raw.githubusercontent.com/google/fonts/main/ofl/nunito/static/Nunito-Regular.ttf"
+curl -L -o assets/fonts/Nunito-Bold.ttf \
+  "https://raw.githubusercontent.com/google/fonts/main/ofl/nunito/static/Nunito-Bold.ttf"
+curl -L -o assets/fonts/OFL.txt \
+  "https://raw.githubusercontent.com/google/fonts/main/ofl/nunito/OFL.txt"
+ls -la assets/fonts/
 ```
 
-Verify: file size > 100 KB. If the variable-font URL fails, fall back to the static Regular instance from the same repo path (`Nunito-Regular.ttf` renamed to `Nunito.ttf`) and note it in the commit message. The font is OFL-licensed (spec §4.2).
+Verify each TTF > 50 KB and `OFL.txt` contains "SIL OPEN FONT LICENSE". If the `static/` path 404s, try the upstream `googlefonts/nunito` repo's `fonts/ttf/` directory.
 
 - [ ] **Step 2: Write the failing tests**
 
-`tests/ui/test_fonts.py`:
+`tests/ui/test_fonts.py` (paths anchored on `__file__` so the suite runs from any cwd):
 
 ```python
 from pathlib import Path
 
-
-def test_nunito_bundled():
-    assert Path("assets/fonts/Nunito.ttf").is_file()
-    assert Path("assets/fonts/Nunito.ttf").stat().st_size > 100_000
+ASSETS = Path(__file__).resolve().parents[2] / "assets" / "fonts"
 
 
-def test_load_fonts_adds_application_font():
+def test_nunito_static_files_bundled():
+    for name in ("Nunito-Regular.ttf", "Nunito-Bold.ttf", "OFL.txt"):
+        p = ASSETS / name
+        assert p.is_file(), name
+    assert (ASSETS / "Nunito-Regular.ttf").stat().st_size > 50_000
+    assert (ASSETS / "Nunito-Bold.ttf").stat().st_size > 50_000
+    assert "SIL OPEN FONT LICENSE" in (ASSETS / "OFL.txt").read_text()
+
+
+def test_load_fonts_registers_nunito_family():
     from PySide6.QtWidgets import QApplication
 
     from ui.fonts import load_fonts
@@ -178,6 +240,10 @@ def test_load_fonts_adds_application_font():
     app = QApplication.instance() or QApplication([])
     font_id = load_fonts(app)
     assert font_id != -1
+    from PySide6.QtGui import QFontDatabase
+
+    families = QFontDatabase.applicationFontFamilies(font_id)
+    assert "Nunito" in families
 
 
 def test_load_fonts_missing_file_returns_minus_one(tmp_path, monkeypatch):
@@ -186,32 +252,34 @@ def test_load_fonts_missing_file_returns_minus_one(tmp_path, monkeypatch):
     import ui.fonts
 
     app = QApplication.instance() or QApplication([])
-    monkeypatch.setattr(ui.fonts, "FONT_PATH", tmp_path / "nope.ttf")
+    monkeypatch.setattr(ui.fonts, "REGULAR_PATH", tmp_path / "nope.ttf")
     assert ui.fonts.load_fonts(app) == -1
 ```
 
 - [ ] **Step 3: Run tests to verify they fail**
 
 Run: `QT_QPA_PLATFORM=offscreen .venv/bin/pytest tests/ui/test_fonts.py -v`
-Expected: FAIL — `ui.fonts` not importable.
+Expected: FAIL — files missing / `ui.fonts` not importable.
 
 - [ ] **Step 4: Implement `ui/fonts.py` and wire the entry points**
 
 `ui/fonts.py`:
 
 ```python
-"""Bundled UI font loading (spec §4.2)."""
+"""Bundled UI font loading (spec section 4.2)."""
 from pathlib import Path
 
-FONT_PATH = Path(__file__).resolve().parent.parent / "assets" / "fonts" / "Nunito.ttf"
+_FONT_DIR = Path(__file__).resolve().parent.parent / "assets" / "fonts"
+REGULAR_PATH = _FONT_DIR / "Nunito-Regular.ttf"
+BOLD_PATH = _FONT_DIR / "Nunito-Bold.ttf"
 
 
 def load_fonts(app) -> int:
-    """Load the bundled Nunito font; return the font id or -1 (never raises)."""
+    """Load bundled Nunito Regular+Bold, set app font; id or -1 (never raises)."""
     ...
 ```
 
-Implementation: if `FONT_PATH` is missing → return -1; else `QFontDatabase.addApplicationFont(str(FONT_PATH))`. Add the same call `load_fonts(app)` immediately after `QApplication(...)` in `ui/app.py:main()` and `ui/avatar_app.py:main()`. No other font plumbing yet — Task 3's QSS already says `font-family: Nunito`.
+Implementation: if `REGULAR_PATH` is missing → return -1. Else load Regular (and Bold when present) with `QFontDatabase.addApplicationFont`; on success set `app.setFont(QFont("Nunito"))` (dialogs and menus inherit the application font). Return the Regular id. Add `load_fonts(app)` immediately after `QApplication(...)` in `ui/app.py:main()` and `ui/avatar_app.py:main()`. Task 1's QSS already carries `font-family: Nunito, sans-serif` on the window roots.
 
 - [ ] **Step 5: Run tests and the whole suite**
 
@@ -221,8 +289,8 @@ Expected: PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add assets/fonts/Nunito.ttf ui/fonts.py ui/app.py ui/avatar_app.py tests/ui/test_fonts.py
-git commit -m "feat(fonts): bundle Nunito (OFL) and load via QFontDatabase at startup"
+git add assets/fonts/ ui/fonts.py ui/app.py ui/avatar_app.py tests/ui/test_fonts.py
+git commit -m "feat(fonts): bundle static Nunito Regular+Bold (OFL) and set app font"
 ```
 
 ---
@@ -356,8 +424,11 @@ Expected: FAIL — no QTabWidget.
 In `SettingsWindow.__init__` (`ui/settings.py`), replace the direct `layout.addWidget(general_box)` sequence with a `QTabWidget`:
 
 - `tabs = QTabWidget(self)`; `tabs.addTab(general_box, i18n.t("settings.section_general"))`, then provider → `settings.section_provider`, screen → `settings.section_screen`, permissions → `settings.section_permissions`, avatar → `settings.section_avatar`.
+- Keep a `self._tabs = tabs` reference.
+- Make each QGroupBox inside a tab flat and untitled (`setFlat(True)`, no `setTitle`) so the tab label is the only heading — no double titles. Form-row labels already exist.
 - Add `tabs` to the main layout in place of the five boxes; `_status` and the button row keep their positions after it.
 - Do not rename any widget attributes; do not touch `_save`/`load` logic.
+- Language switching is live (`language_bridge`); extend `retranslate()` (or `_on_language_changed`) to re-set all five `setTabText` labels from the `settings.section_*` keys, otherwise tab titles stay in the old language after a switch.
 
 - [ ] **Step 4: Run tests and the whole suite**
 
@@ -467,20 +538,54 @@ def test_delete_active_while_running_cancels_task(tmp_path, monkeypatch):
 
 
 def test_delete_active_while_running_no_late_append(tmp_path, monkeypatch):
-    """A cancelled-signal arriving after deletion must not crash or resurrect."""
+    """Late events from a deleted session must not land in a newer one.
+
+    Sequence: delete the active session while its task runs, send a new
+    message (new session id), then the old task's cancelled/assistant
+    events arrive. They carry the OLD session id and must be dropped.
+    """
+    from types import SimpleNamespace
+
     import ui.gui.main_window as mw
 
     app, win = _make_window(tmp_path)
+    win._runtime = FakeRuntime(win)
     sids = _seed_sessions(win, 1)
     win._load_session(sids[0])
     win._set_busy(True)
     win._runtime = type("R", (), {"cancel_active_task": lambda self: None})()
     monkeypatch.setattr(mw, "confirm_delete_session", lambda parent, title: True)
     win._delete_session(sids[0])
-    # late signal handlers (as if the agent thread just noticed the cancel)
-    win._on_cancelled()
-    win._on_finished()
-    assert win._history.messages(sids[0]) == []  # nothing appended after delete
+    # new message creates a fresh session
+    win._chat_input.setPlainText("yeni mesaj")
+    win._send()
+    new_sid = win._session_id
+    assert new_sid is not None and new_sid != sids[0]
+    # old task's late events (bus stamps session_id on every event)
+    old_ev = SimpleNamespace(name="assistant_message", session_id=sids[0],
+                             task_id="t-old", payload={"text": "eski görev yanıtı"})
+    win._on_event(old_ev)
+    old_fin = SimpleNamespace(name="agent_cancelled", session_id=sids[0],
+                              task_id="t-old", payload={})
+    win._on_event(old_fin)
+    assert all(m[1] != "eski görev yanıtı" for m in win._history.messages(new_sid))
+    assert not any("iptal" in m[1].lower() for m in win._history.messages(new_sid))
+    win.hide()
+
+
+def test_late_events_same_session_still_apply(tmp_path):
+    """Control: events matching the current session id are NOT dropped."""
+    from types import SimpleNamespace
+
+    app, win = _make_window(tmp_path)
+    win._runtime = FakeRuntime(win)
+    win._chat_input.setPlainText("selam")
+    win._send()
+    sid = win._session_id
+    ev = SimpleNamespace(name="assistant_message", session_id=sid,
+                         task_id="t1", payload={"text": "normal yanıt"})
+    win._on_event(ev)
+    assert ("assistant", "normal yanıt", None) in win._history.messages(sid)
     win.hide()
 
 
@@ -537,8 +642,8 @@ In `ui/gui/main_window.py`:
   (objectNames from Task 1).
 - Module-level `confirm_delete_session(parent, title: str) -> bool`: calls
   `_build_delete_dialog`, returns `dlg.exec() == QDialog.DialogCode.Accepted`.
-- `ChatWindow._on_session_menu(pos)`: `item = self._sessions.itemAt(pos)`; if None return; `menu = QMenu(self._sessions)`; `act = menu.addAction(i18n.t("sessions.delete"))`; if `menu.exec(self._sessions.mapToGlobal(pos)) == act` → `self._delete_session(item.data(Qt.ItemDataRole.UserRole))`.
-- In `__init__`: `self._sessions.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)`; connect `customContextMenuRequested` to `_on_session_menu`.
+- `ChatWindow._on_session_menu(pos)`: `item = self._sessions.itemAt(pos)`; if None, fall back to `self._sessions.currentItem()` (keyboard-invoked menu has no mouse pos); if still None return. `menu = QMenu(self._sessions)`; `act = menu.addAction(i18n.t("sessions.delete"))`; if `menu.exec(self._sessions.mapToGlobal(pos)) == act` → `self._delete_session(item.data(Qt.ItemDataRole.UserRole))`.
+- In `__init__`: `self._sessions.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)`; connect `customContextMenuRequested` to `_on_session_menu`. Add `QShortcut(QKeySequence(Qt.Key.Key_Delete), self._sessions, activated=self._on_session_menu_keyboard)` where the keyboard handler opens the same menu on the current item; `setContextMenuPolicy` already lets Qt fire `customContextMenuRequested` from the menu key.
 - `ChatWindow._delete_session(session_id: str) -> None`:
   1. Resolve the display title: scan `self._history.list_sessions()` for the
      tuple whose first element equals `session_id`; use its title, falling
@@ -552,7 +657,7 @@ In `ui/gui/main_window.py`:
      (restores the empty state via Task 3); `self._chat_input.setFocus()`.
   6. `self._reload_sessions()`.
 
-- **Late-signal guards** (Review Focus #1): at the top of `_on_assistant`, `_on_error`, `_on_cancelled`, skip the `self._history.append(...)` call when `self._session_id is None` (the transcript widget may still show the line; only persistence is skipped). `_on_finished` needs no guard (it only reloads sessions).
+- **Late-signal guards** (Review Focus #3): `Event` carries `.session_id` (`core/events.py`). In `_on_assistant`, `_on_error`, `_on_cancelled`, skip the `self._history.append(...)` and transcript append when `event.session_id != self._session_id` — this covers both "deleted active session" (`_session_id is None`) and "deleted, then sent a new message" (stale event id ≠ new id). `_on_finished` keeps its unconditional `_set_busy(False)` (cancel of any task ends the UI busy state) but must not touch history.
 
 - [ ] **Step 5: Run tests and the whole suite**
 
@@ -582,20 +687,32 @@ QT_QPA_PLATFORM=offscreen .venv/bin/pytest tests -q
 
 Expected: all tests PASS; compile OK.
 
-- [ ] **Step 2: Smoke-launch the GUI offscreen**
+- [ ] **Step 2: Smoke-launch the GUI offscreen and capture screenshots**
 
 ```bash
-QT_QPA_PLATFORM=offscreen timeout 5 .venv/bin/python -c "
+QT_QPA_PLATFORM=offscreen timeout 15 .venv/bin/python -c "
+from pathlib import Path
 from PySide6.QtWidgets import QApplication
-from ui.theme import apply_theme, qss
+from ui.theme import apply_theme
 from ui.fonts import load_fonts
+from ui.gui.main_window import ChatWindow
+from ui.settings import SettingsWindow
 app = QApplication([])
-apply_theme(app, 'dark'); apply_theme(app, 'light')
 print('font id', load_fonts(app))
+for mode in ('dark', 'light'):
+    apply_theme(app, mode)
+    win = ChatWindow()
+    win.resize(1100, 720)
+    win.show()
+    app.processEvents()
+    Path('artifacts').mkdir(exist_ok=True)
+    win.grab().save(f'artifacts/main_{mode}.png')
+    win.hide(); win.deleteLater(); app.processEvents()
+print('ok')
 "
 ```
 
-Expected: prints a font id != -1; no exceptions.
+Expected: prints a font id != -1; `artifacts/main_dark.png` and `artifacts/main_light.png` exist (manual visual check of palette/radii/focus). No exceptions. QSS parse errors surface as Qt warnings — Task 1's `test_qss_parses_without_qt_warnings` already guards this.
 
 - [ ] **Step 3: Commit any loose ends (or skip when clean)**
 

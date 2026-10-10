@@ -54,14 +54,14 @@ Dark mode:
 | `surface` | `#1F1F1F` | Cards, assistant bubbles, inputs |
 | `surface_hover` | `#272727` | Hover states |
 | `border` | `#2E2E2E` | Panel/card borders, separators |
-| `input_border` | `#5C5C62` | Input/control borders (meets 3:1 UI-component rule) |
+| `input_border` | `#6E6E74` | Input/control borders (>= 3:1 vs bg AND vs surface) |
 | `fg` | `#F2F2F2` | Primary text |
 | `fg_muted` | `#8E8E93` | Secondary text |
 | `accent` | `#F87171` | Accent, links, active states |
 | `accent_hover` | `#FA8A8A` | Accent hover |
 | `bubble_user` | `#2A1B1B` | User message bubble |
 | `bubble_assistant` | `#1F1F1F` | Assistant message bubble |
-| `danger` | `#FF4D4D` | Destructive controls only (filled) |
+| `danger` | `#DC2626` | Destructive controls only (filled; >= 4.5:1 with white) |
 | `on_accent` | `#1A0E0E` | Text on accent fill (6.82:1) |
 | `on_danger` | `#FFFFFF` | Text on danger fill |
 
@@ -121,8 +121,14 @@ Rules:
   in scope.
 - **Focus ring**: implemented as a persistent 2px border on interactive
   widgets (normal state border uses a color that reserves the same 2px, so
-  there is no size jump) that switches to `accent` on `:focus`. This is the
-  Qt-reliable equivalent of an outline.
+  there is no size jump). Border color on `:focus`:
+  - Filled accent buttons → `fg` (a light/dark swap against the accent fill;
+    `accent`→`accent_hover` is only ~1.2:1 and invisible).
+  - Inputs, combos, outline buttons → `accent` (>= 3:1 against their
+    surrounding background).
+- Every focusable selector (`QPushButton`, `QPlainTextEdit#chat_input`,
+  `QLineEdit`, `QComboBox`) carries `border: 2px` in its normal state; a
+  test parses the QSS per selector, not substring.
 - Press/depress 1px offset: skipped (not reliable in QSS).
 
 ## 5. Component designs
@@ -200,13 +206,13 @@ Layout skeleton unchanged (sidebar + chat column); visual treatment changes.
   interactive widget.
 - Keyboard path: session items actionable via the context-menu key;
   confirmation dialog fully keyboard operable (QDialogButtonBox default).
-- Contrast (computed, not aspirational):
-  - Dark: `fg`/`bg` 15+:1; `on_accent`/`accent` 6.82:1; `on_danger`/`danger`
-    ~4.6:1.
-  - Light: `fg`/`bg` 15+:1; `on_accent`/`accent` (`#FFFFFF`/`#D1433B`) 4.59:1;
-    `on_danger`/`danger` (`#FFFFFF`/`#C93636`) ~5.2:1.
-  - Input borders (`input_border`) >= 3:1 against their surrounding
-    background on both themes.
+- Contrast (computed by a `contrast(a, b)` WCAG helper in the tests, not
+  hand-checked):
+  - Text pairs >= 4.5:1: `fg`/`bg`, `on_accent`/`accent`, `on_danger`/`danger`,
+    `fg_muted`/`surface`.
+  - UI-component pairs >= 3:1: `input_border`/`bg`, `input_border`/`surface`.
+  - The test asserts ratios, not hex equality; changing a token to a value
+    that breaks a pair fails the test.
 - Destructive actions always confirm; destructive controls are filled and
   never share a row with an accent-filled control.
 
