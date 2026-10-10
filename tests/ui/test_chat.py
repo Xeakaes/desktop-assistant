@@ -255,3 +255,148 @@ def test_cancel_button_uses_outline_not_danger(tmp_path):
     app, win = _make_window(tmp_path)
     assert win._cancel_btn.objectName() == "outline"
     win.hide()
+
+
+def _seed_sessions(win, n=2):
+    ids = []
+    for i in range(n):
+        sid = win._history.create_session()
+        win._history.append(sid, "user", f"selam {i}")
+        ids.append(sid)
+    win._reload_sessions()
+    return ids
+
+
+def test_context_menu_delete_removes_session(tmp_path, monkeypatch):
+    import ui.gui.main_window as mw
+
+    app, win = _make_window(tmp_path)
+    sids = _seed_sessions(win)
+    monkeypatch.setattr(mw, "confirm_delete_session", lambda parent, title: True)
+    win._delete_session(sids[0])
+    remaining = [s[0] for s in win._history.list_sessions()]
+    assert sids[0] not in remaining
+    assert win._sessions.count() == len(remaining)
+    win.hide()
+
+
+def test_cancelled_confirm_keeps_session(tmp_path, monkeypatch):
+    import ui.gui.main_window as mw
+
+    app, win = _make_window(tmp_path)
+    sids = _seed_sessions(win, 1)
+    monkeypatch.setattr(mw, "confirm_delete_session", lambda parent, title: False)
+    win._delete_session(sids[0])
+    assert sids[0] in [s[0] for s in win._history.list_sessions()]
+    win.hide()
+
+
+def test_delete_active_session_resets_to_empty(tmp_path, monkeypatch):
+    import ui.gui.main_window as mw
+
+    app, win = _make_window(tmp_path)
+    sids = _seed_sessions(win, 1)
+    win._load_session(sids[0])
+    assert win._session_id == sids[0]
+    monkeypatch.setattr(mw, "confirm_delete_session", lambda parent, title: True)
+    win._delete_session(sids[0])
+    assert win._session_id is None
+    assert win._messages == []
+    assert not win._empty_state.isHidden()
+    win.hide()
+
+
+def test_delete_active_while_running_cancels_task(tmp_path, monkeypatch):
+    import ui.gui.main_window as mw
+
+    app, win = _make_window(tmp_path)
+    sids = _seed_sessions(win, 1)
+    win._load_session(sids[0])
+    win._set_busy(True)
+
+    calls = []
+    win._runtime = type("R", (), {"cancel_active_task": lambda self: calls.append("cancel")})()
+    monkeypatch.setattr(mw, "confirm_delete_session", lambda parent, title: True)
+    win._delete_session(sids[0])
+    assert calls == ["cancel"]
+    assert win._session_id is None
+    win.hide()
+
+
+def test_delete_active_while_running_no_late_append(tmp_path, monkeypatch):
+    """Late events from a deleted session must not land in a newer one."""
+    from types import SimpleNamespace
+
+    import ui.gui.main_window as mw
+
+    app, win = _make_window(tmp_path)
+    win._runtime = FakeRuntime(win)
+    sids = _seed_sessions(win, 1)
+    win._load_session(sids[0])
+    win._set_busy(True)
+    win._runtime = type("R", (), {"cancel_active_task": lambda self: None})()
+    monkeypatch.setattr(mw, "confirm_delete_session", lambda parent, title: True)
+    win._delete_session(sids[0])
+    win._chat_input.setPlainText("yeni mesaj")
+    win._send()
+    new_sid = win._session_id
+    assert new_sid is not None and new_sid != sids[0]
+    old_ev = SimpleNamespace(name="assistant_message", session_id=sids[0],
+                             task_id="t-old", payload={"text": "eski görev yanıtı"})
+    win._on_event(old_ev)
+    old_fin = SimpleNamespace(name="agent_cancelled", session_id=sids[0],
+                              task_id="t-old", payload={})
+    win._on_event(old_fin)
+    assert all(m[1] != "eski görev yanıtı" for m in win._history.messages(new_sid))
+    assert not any("iptal" in m[1].lower() for m in win._history.messages(new_sid))
+    win.hide()
+
+
+def test_late_events_same_session_still_apply(tmp_path):
+    """Control: events matching the current session id are NOT dropped."""
+    from types import SimpleNamespace
+
+    app, win = _make_window(tmp_path)
+    win._runtime = FakeRuntime(win)
+    win._chat_input.setPlainText("selam")
+    win._send()
+    sid = win._session_id
+    ev = SimpleNamespace(name="assistant_message", session_id=sid,
+                         task_id="t1", payload={"text": "normal yanıt"})
+    win._on_event(ev)
+    assert ("assistant", "normal yanıt", None) in win._history.messages(sid)
+    win.hide()
+
+
+def test_send_after_delete_creates_new_session(tmp_path, monkeypatch):
+    import ui.gui.main_window as mw
+
+    app, win = _make_window(tmp_path)
+    win._runtime = FakeRuntime(win)
+    sids = _seed_sessions(win, 1)
+    win._load_session(sids[0])
+    monkeypatch.setattr(mw, "confirm_delete_session", lambda parent, title: True)
+    win._delete_session(sids[0])
+    win._chat_input.setPlainText("yeni mesaj")
+    win._send()
+    assert win._session_id is not None
+    assert win._session_id != sids[0]
+    assert ("user", "yeni mesaj", None) in win._history.messages(win._session_id)
+    win.hide()
+
+
+def test_confirm_delete_session_builds_dialog_with_danger_button():
+    """The confirm helper builds a dialog with filled-danger delete + outline cancel."""
+    from PySide6.QtWidgets import QApplication, QDialogButtonBox
+
+    from ui.gui.main_window import _build_delete_dialog
+
+    app = QApplication.instance() or QApplication([])
+    dlg = _build_delete_dialog(None, "deneme sohbeti")
+    buttons = dlg.findChild(QDialogButtonBox)
+    assert buttons is not None
+    danger = buttons.button(QDialogButtonBox.StandardButton.Yes)
+    cancel = buttons.button(QDialogButtonBox.StandardButton.No)
+    assert danger is not None and danger.objectName() == "danger"
+    assert cancel is not None and cancel.objectName() == "outline"
+    dlg.deleteLater()

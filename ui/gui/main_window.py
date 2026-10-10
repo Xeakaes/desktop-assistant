@@ -6,15 +6,18 @@ import threading
 from pathlib import Path
 
 from PySide6.QtCore import QObject, Qt, Signal
-from PySide6.QtGui import QKeyEvent
+from PySide6.QtGui import QKeySequence, QKeyEvent, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
+    QDialog,
+    QDialogButtonBox,
     QFrame,
     QHBoxLayout,
     QLabel,
     QListWidget,
     QListWidgetItem,
     QMainWindow,
+    QMenu,
     QPlainTextEdit,
     QPushButton,
     QScrollArea,
@@ -49,6 +52,34 @@ class _UiSignals(QObject):
     finished = Signal()
     error = Signal(str)
     cancelled = Signal()
+
+
+def _build_delete_dialog(parent, title: str) -> QDialog:
+    dlg = QDialog(parent)
+    dlg.setWindowTitle(i18n.t("sessions.delete"))
+    lay = QVBoxLayout(dlg)
+    msg = QLabel(i18n.t("sessions.delete_confirm", title=title), dlg)
+    msg.setWordWrap(True)
+    lay.addWidget(msg)
+    buttons = QDialogButtonBox(
+        QDialogButtonBox.StandardButton.Yes | QDialogButtonBox.StandardButton.No,
+        dlg,
+    )
+    yes = buttons.button(QDialogButtonBox.StandardButton.Yes)
+    yes.setText(i18n.t("sessions.delete"))
+    yes.setObjectName("danger")
+    no = buttons.button(QDialogButtonBox.StandardButton.No)
+    no.setText(i18n.t("sessions.delete_cancel"))
+    no.setObjectName("outline")
+    buttons.accepted.connect(dlg.accept)
+    buttons.rejected.connect(dlg.reject)
+    lay.addWidget(buttons)
+    return dlg
+
+
+def confirm_delete_session(parent, title: str) -> bool:
+    dlg = _build_delete_dialog(parent, title)
+    return dlg.exec() == QDialog.DialogCode.Accepted
 
 
 class ChatWindow(QMainWindow):
@@ -176,6 +207,15 @@ class ChatWindow(QMainWindow):
 
         language_bridge.changed.connect(self.retranslate)
 
+        self._sessions.setContextMenuPolicy(
+            Qt.ContextMenuPolicy.CustomContextMenu
+        )
+        self._sessions.customContextMenuRequested.connect(self._on_session_menu)
+        QShortcut(
+            QKeySequence(Qt.Key.Key_Delete), self._sessions,
+            activated=self._on_session_menu_keyboard,
+        )
+
         self.retranslate()
         self._history.purge_empty_sessions()
         self.new_chat()
@@ -290,6 +330,46 @@ class ChatWindow(QMainWindow):
         sid = item.data(Qt.ItemDataRole.UserRole)
         self._load_session(sid)
 
+    def _on_session_menu(self, pos) -> None:
+        item = self._sessions.itemAt(pos)
+        if item is None:
+            item = self._sessions.currentItem()
+        if item is None:
+            return
+        menu = QMenu(self._sessions)
+        act = menu.addAction(i18n.t("sessions.delete"))
+        if menu.exec(self._sessions.mapToGlobal(pos)) == act:
+            self._delete_session(item.data(Qt.ItemDataRole.UserRole))
+
+    def _on_session_menu_keyboard(self) -> None:
+        item = self._sessions.currentItem()
+        if item is None:
+            return
+        menu = QMenu(self._sessions)
+        act = menu.addAction(i18n.t("sessions.delete"))
+        center = self._sessions.rect().center()
+        if menu.exec(self._sessions.mapToGlobal(center)) == act:
+            self._delete_session(item.data(Qt.ItemDataRole.UserRole))
+
+    def _delete_session(self, session_id: str) -> None:
+        title = session_id[:8]
+        for sid, t, _ts in self._history.list_sessions():
+            if sid == session_id:
+                title = t or sid[:8]
+                break
+        if not confirm_delete_session(self, title):
+            return
+        was_active = session_id == self._session_id
+        if was_active and self._busy and self._runtime is not None:
+            self._runtime.cancel_active_task()
+            self._set_busy(False)
+        self._history.delete_session(session_id)
+        if was_active:
+            self._session_id = None
+            self._clear_messages()
+            self._chat_input.setFocus()
+        self._reload_sessions()
+
     def _load_session(self, session_id: str, force: bool = False) -> None:
         if not force and session_id == self._session_id:
             return
@@ -361,16 +441,18 @@ class ChatWindow(QMainWindow):
             self._activity.setText("")
         elif name == "assistant_message":
             text = payload.get("text", "")
-            if text:
+            if text and event.session_id == self._session_id:
                 self._signals.assistant.emit(text)
         elif name == "agent_finished":
             self._signals.finished.emit()
         elif name == "agent_error":
             code = payload.get("error_code", "")
             msg = payload.get("message") or code
-            self._signals.error.emit(f"({code}): {msg}")
+            if event.session_id == self._session_id:
+                self._signals.error.emit(f"({code}): {msg}")
         elif name == "agent_cancelled":
-            self._signals.cancelled.emit()
+            if event.session_id == self._session_id:
+                self._signals.cancelled.emit()
         elif name == "confirmation_requested":
             self._activity.setText(
                 i18n.t("confirmation.pending") + f" {payload.get('tool_name', '?')}"

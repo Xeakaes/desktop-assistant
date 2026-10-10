@@ -128,6 +128,12 @@ STRINGS: dict[str, dict[str, str]] = {
         "tr": "Avatar '{name}' seçildi — yeniden başlatın",
         "en": "Avatar '{name}' selected — restart to apply",
     },
+    "sessions.delete": {"tr": "Sohbeti sil", "en": "Delete chat"},
+    "sessions.delete_confirm": {
+        "tr": "'{title}' sohbeti kalıcı olarak silinsin mi?",
+        "en": "Permanently delete the '{title}' chat?",
+    },
+    "sessions.delete_cancel": {"tr": "Vazgeç", "en": "Cancel"},
 }
 
 
