@@ -34,6 +34,12 @@ def serialize_messages(messages: list[ChatMessage]) -> list[dict]:
     wire: list[dict] = []
     for m in messages:
         item: dict = {"role": m.role, "content": m.content}
+        if m.images:
+            # Ollama expects raw base64 strings (no data: prefix).
+            b64s = []
+            for uri in m.images:
+                b64s.append(uri.split(",", 1)[1] if "," in uri else uri)
+            item["images"] = b64s
         if m.role == "assistant" and m.tool_calls:
             item["tool_calls"] = [
                 {"function": {"name": c.name, "arguments": c.arguments}}
@@ -67,6 +73,7 @@ def _parse_arguments(raw) -> dict:
 
 class OllamaProvider(ModelProvider):
     supports_tools = True
+    supports_vision = True
 
     def __init__(
         self,

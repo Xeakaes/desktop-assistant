@@ -34,7 +34,14 @@ def to_provider_tools(schemas: list[dict]) -> list[dict]:
 def serialize_messages(messages: list[ChatMessage]) -> list[dict]:
     wire: list[dict] = []
     for m in messages:
-        item: dict = {"role": m.role, "content": m.content}
+        if m.images:
+            # Vision: content becomes a list of parts (text + image_url).
+            parts: list[dict] = [{"type": "text", "text": m.content or ""}]
+            for uri in m.images:
+                parts.append({"type": "image_url", "image_url": {"url": uri}})
+            item: dict = {"role": m.role, "content": parts}
+        else:
+            item = {"role": m.role, "content": m.content}
         if m.role == "assistant" and m.tool_calls:
             item["tool_calls"] = [
                 {
@@ -57,6 +64,7 @@ def serialize_messages(messages: list[ChatMessage]) -> list[dict]:
 
 class OpenAICompatProvider(ModelProvider):
     supports_tools = True
+    supports_vision = True
 
     def __init__(
         self,
