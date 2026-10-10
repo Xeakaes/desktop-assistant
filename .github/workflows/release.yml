@@ -34,8 +34,8 @@ jobs:
         run: bash packaging/build_linux.sh
       - name: Smoke test
         run: |
-          test -x dist/desktop-assistant/desktop-assistant
-          env -u APP_VERSION dist/desktop-assistant/desktop-assistant --version | grep -Fx "$APP_VERSION"
+          test -x dist/NexaDesk/NexaDesk
+          env -u APP_VERSION dist/NexaDesk/NexaDesk --version | grep -Fx "$APP_VERSION"
       - uses: actions/upload-artifact@v4
         with:
           name: linux-packages
@@ -66,15 +66,15 @@ jobs:
         shell: bash
         run: |
           printf '%s' "$APP_VERSION" > _version.txt
-          pyinstaller packaging/desktop-assistant.spec --noconfirm --distpath dist --workpath build
+          pyinstaller packaging/nexadesk.spec --noconfirm --distpath dist --workpath build
       - name: Smoke test
         shell: bash
         run: |
-          test -f dist/desktop-assistant/desktop-assistant.exe
-          env -u APP_VERSION dist/desktop-assistant/desktop-assistant.exe --version | grep -Fx "$APP_VERSION"
+          test -f dist/NexaDesk/NexaDesk.exe
+          env -u APP_VERSION dist/NexaDesk/NexaDesk.exe --version | grep -Fx "$APP_VERSION"
       - name: Package zip
         shell: pwsh
-        run:           Compress-Archive -Path dist/desktop-assistant -DestinationPath "dist/desktop-assistant_${env:APP_VERSION}_windows_x64.zip"
+        run:           Compress-Archive -Path dist/NexaDesk -DestinationPath "dist/NexaDesk_${env:APP_VERSION}_windows_x64.zip"
       - uses: actions/upload-artifact@v4
         with:
           name: windows-zip

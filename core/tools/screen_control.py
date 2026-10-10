@@ -56,7 +56,7 @@ class _ScreenshotTool(_ScreenControlTool):
             from pathlib import Path
 
             path = args.get("path") or str(
-                Path(tempfile.gettempdir()) / "desktop-assistant-shot.jpg"
+                Path(tempfile.gettempdir()) / "nexadesk-shot.jpg"
             )
             client.screenshot(output=path)
             data = {"path": path}

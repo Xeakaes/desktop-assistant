@@ -9,8 +9,8 @@ if [ -x ".venv/bin/python" ]; then PY=".venv/bin/python"; fi
 
 printf '%s' "$APP_VERSION" > _version.txt
 
-"$PY" -m PyInstaller packaging/desktop-assistant.spec --noconfirm --distpath dist --workpath build
-tar -czf "dist/desktop-assistant_${APP_VERSION}_linux_amd64.tar.gz" -C dist desktop-assistant
+"$PY" -m PyInstaller packaging/nexadesk.spec --noconfirm --distpath dist --workpath build
+tar -czf "dist/NexaDesk_${APP_VERSION}_linux_amd64.tar.gz" -C dist NexaDesk
 NFPM="$(command -v nfpm || echo "$HOME/.local/bin/nfpm")"
-"$NFPM" package --config packaging/nfpm.yaml --packager deb --target "dist/desktop-assistant_${APP_VERSION}_amd64.deb"
-echo "built: dist/desktop-assistant/ + tar.gz + deb"
+"$NFPM" package --config packaging/nfpm.yaml --packager deb --target "dist/NexaDesk_${APP_VERSION}_amd64.deb"
+echo "built: dist/NexaDesk/ + tar.gz + deb"

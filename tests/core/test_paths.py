@@ -17,9 +17,9 @@ def test_config_dir_frozen_uses_home(monkeypatch, tmp_path):
     monkeypatch.setenv("APPDATA", str(tmp_path / "appdata"))
     monkeypatch.setattr(paths.Path, "home", classmethod(lambda cls: tmp_path))
     if os.name == "nt":
-        assert paths.config_dir() == tmp_path / "appdata" / "desktop-assistant"
+        assert paths.config_dir() == tmp_path / "appdata" / "NexaDesk"
     else:
-        assert paths.config_dir() == tmp_path / ".config" / "desktop-assistant"
+        assert paths.config_dir() == tmp_path / ".config" / "NexaDesk"
 
 
 def test_bundle_root_frozen(monkeypatch, tmp_path):
@@ -41,7 +41,7 @@ def test_data_dir_creates(monkeypatch, tmp_path):
     d = paths.data_dir()
     assert d.exists() and d.is_dir()
     if os.name != "nt":
-        assert d == tmp_path / ".local" / "share" / "desktop-assistant"
+        assert d == tmp_path / ".local" / "share" / "NexaDesk"
 
 
 def test_ensure_user_config_seeds_from_template(monkeypatch, tmp_path):

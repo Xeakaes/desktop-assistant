@@ -48,7 +48,7 @@ def test_serve_sets_data_dir_env(monkeypatch, tmp_path):
 
     monkeypatch.setattr(sm, "main", fake_server_main)
     entry.serve_screen_control(["--serve-screen-control"])
-    assert captured["env"] == str(tmp_path / ".config" / "desktop-assistant")
+    assert captured["env"] == str(tmp_path / ".config" / "NexaDesk")
 
 
 def test_spawn_disabled_settings(monkeypatch):

@@ -12,7 +12,7 @@ class MissingTranslationError(KeyError):
 
 
 STRINGS: dict[str, dict[str, str]] = {
-    "app.title": {"tr": "Masaüstü Asistanı", "en": "Desktop Assistant"},
+    "app.title": {"tr": "NexaDesk", "en": "NexaDesk"},
     "mode.gui": {"tr": "Sohbet (GUI)", "en": "Chat (GUI)"},
     "mode.avatar": {"tr": "Avatar", "en": "Avatar"},
     "mode.choose_title": {"tr": "Mod seçin", "en": "Choose a mode"},
@@ -41,7 +41,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "tr": "Asistana ne sormak istersiniz?",
         "en": "What would you like to ask?",
     },
-    "settings.title": {"tr": "Ayarlar — Masaüstü Asistanı", "en": "Settings — Desktop Assistant"},
+    "settings.title": {"tr": "Ayarlar — NexaDesk", "en": "Settings — NexaDesk"},
     "settings.theme": {"tr": "Tema", "en": "Theme"},
     "settings.theme_dark": {"tr": "Karanlık", "en": "Dark"},
     "settings.theme_light": {"tr": "Açık", "en": "Light"},

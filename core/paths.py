@@ -24,18 +24,18 @@ def bundle_root() -> Path:
 def config_dir() -> Path:
     if is_frozen():
         if os.name == "nt":
-            base = Path(os.environ.get("APPDATA", str(Path.home()))) / "desktop-assistant"
+            base = Path(os.environ.get("APPDATA", str(Path.home()))) / "NexaDesk"
         else:
-            base = Path.home() / ".config" / "desktop-assistant"
+            base = Path.home() / ".config" / "NexaDesk"
         return base
     return repo_root() / "config"
 
 
 def data_dir() -> Path:
     if os.name == "nt":
-        base = Path(os.environ.get("APPDATA", str(Path.home()))) / "desktop-assistant"
+        base = Path(os.environ.get("APPDATA", str(Path.home()))) / "NexaDesk"
     else:
-        base = Path.home() / ".local" / "share" / "desktop-assistant"
+        base = Path.home() / ".local" / "share" / "NexaDesk"
     base.mkdir(parents=True, exist_ok=True)
     return base
 

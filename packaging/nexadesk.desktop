@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=NexaDesk
+Comment=NexaDesk desktop AI assistant with chat GUI and avatar mode
+Exec=/opt/NexaDesk/NexaDesk
+Icon=nexadesk
+Terminal=false
+Categories=Utility;

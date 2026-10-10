@@ -82,4 +82,4 @@ def test_default_db_path_is_under_home():
 
     path = default_db_path()
     assert path.name == "history.db"
-    assert "desktop-assistant" in str(path)
+    assert "NexaDesk" in str(path)

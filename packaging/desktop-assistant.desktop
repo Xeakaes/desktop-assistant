@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Desktop Assistant
-Comment=Desktop AI Assistant with chat GUI and avatar mode
-Exec=/opt/desktop-assistant/desktop-assistant
-Icon=desktop-assistant
-Terminal=false
-Categories=Utility;
