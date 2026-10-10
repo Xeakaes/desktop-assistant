@@ -44,7 +44,7 @@ Failure modes the spec implies that are most likely to bite a user; each is pinn
 - Consumes: nothing (foundation task).
 - Produces: `THEMES` with token set {bg, bg_alt, surface, surface_hover, border, input_border, fg, fg_muted, accent, accent_hover, bubble_user, bubble_assistant, danger, on_accent, on_danger} for both themes; `REQUIRED_OBJECTNAMES` extended with `new_chat`, `sessions_header`, `empty_state`, `outline`; `qss(theme_name) -> str` covering the contract plus focus/scrollbar/tab/menu rules. Later tasks style widgets by objectName only.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Extend `tests/ui/test_theme.py`:
 
@@ -140,12 +140,12 @@ def test_qss_has_scrollbar_tabs_and_outline():
 
 The existing `test_qss_covers_required_objectnames` stays; it will fail until the contract tuple and QSS selectors are updated in Step 3.
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `QT_QPA_PLATFORM=offscreen .venv/bin/pytest tests/ui/test_theme.py -v`
 Expected: FAIL — new token keys missing, `#D1433B` not found, `QScrollBar` not in QSS.
 
-- [ ] **Step 3: Rewrite `ui/theme.py`**
+- [x] **Step 3: Rewrite `ui/theme.py`**
 
 - Replace both `THEMES` dicts with the spec §4.1 tables verbatim (all 15 tokens per theme).
 - Extend `REQUIRED_OBJECTNAMES` with `("new_chat", "sessions_header", "empty_state", "outline")`.
@@ -167,12 +167,12 @@ Expected: FAIL — new token keys missing, `#D1433B` not found, `QScrollBar` not
   - `QWidget#settings_win`, `QLabel#muted`, disabled buttons: keep semantics, swap to new token values.
 - Values only from `THEMES`; spacing from the 4/8/12/16/24/32 scale.
 
-- [ ] **Step 4: Run full theme tests and the whole suite**
+- [x] **Step 4: Run full theme tests and the whole suite**
 
 Run: `QT_QPA_PLATFORM=offscreen .venv/bin/pytest tests/ui/test_theme.py -q && QT_QPA_PLATFORM=offscreen .venv/bin/pytest tests -q`
 Expected: theme tests PASS; full suite PASS (other UI tests assert behavior, not colors).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add ui/theme.py tests/ui/test_theme.py
@@ -196,7 +196,7 @@ git commit -m "feat(theme): pastel/near-black palette, focus rings, scrollbar, t
 - Consumes: nothing.
 - Produces: `load_fonts(app) -> int` in `ui/fonts.py` — loads BOTH static files via `QFontDatabase.addApplicationFont`, then `app.setFont(QFont("Nunito"))` so windows that are not children of `#main` (dialogs, menus, ModeChooser) also get the font. Returns the Regular font id, or `-1` when the Regular file is missing or fails to load. Never raises. Called once per process from both entry points.
 
-- [ ] **Step 1: Download the static font files and license**
+- [x] **Step 1: Download the static font files and license**
 
 Static instances, not the variable font: Qt's variable-weight support varies by version and Bold would fall back to synthetic bold. The design only uses Normal and Bold (spec §4.2).
 
@@ -213,7 +213,7 @@ ls -la assets/fonts/
 
 Verify each TTF > 50 KB and `OFL.txt` contains "SIL OPEN FONT LICENSE". If the `static/` path 404s, try the upstream `googlefonts/nunito` repo's `fonts/ttf/` directory.
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 `tests/ui/test_fonts.py` (paths anchored on `__file__` so the suite runs from any cwd):
 
@@ -256,12 +256,12 @@ def test_load_fonts_missing_file_returns_minus_one(tmp_path, monkeypatch):
     assert ui.fonts.load_fonts(app) == -1
 ```
 
-- [ ] **Step 3: Run tests to verify they fail**
+- [x] **Step 3: Run tests to verify they fail**
 
 Run: `QT_QPA_PLATFORM=offscreen .venv/bin/pytest tests/ui/test_fonts.py -v`
 Expected: FAIL — files missing / `ui.fonts` not importable.
 
-- [ ] **Step 4: Implement `ui/fonts.py` and wire the entry points**
+- [x] **Step 4: Implement `ui/fonts.py` and wire the entry points**
 
 `ui/fonts.py`:
 
@@ -281,12 +281,12 @@ def load_fonts(app) -> int:
 
 Implementation: if `REGULAR_PATH` is missing → return -1. Else load Regular (and Bold when present) with `QFontDatabase.addApplicationFont`; on success set `app.setFont(QFont("Nunito"))` (dialogs and menus inherit the application font). Return the Regular id. Add `load_fonts(app)` immediately after `QApplication(...)` in `ui/app.py:main()` and `ui/avatar_app.py:main()`. Task 1's QSS already carries `font-family: Nunito, sans-serif` on the window roots.
 
-- [ ] **Step 5: Run tests and the whole suite**
+- [x] **Step 5: Run tests and the whole suite**
 
 Run: `QT_QPA_PLATFORM=offscreen .venv/bin/pytest tests/ui/test_fonts.py -q && QT_QPA_PLATFORM=offscreen .venv/bin/pytest tests -q`
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add assets/fonts/ ui/fonts.py ui/app.py ui/avatar_app.py tests/ui/test_fonts.py
@@ -307,7 +307,7 @@ git commit -m "feat(fonts): bundle static Nunito Regular+Bold (OFL) and set app 
 - Consumes: `THEMES`/`qss()` objectNames from Task 1 (`new_chat`, `sessions_header`, `empty_state`, `outline`); `sidebar.sessions` i18n key (already exists, orphaned).
 - Produces: `ChatWindow._empty_state: QFrame`, `ChatWindow._sessions_header: QLabel`; cancel button objectName becomes `"outline"`. Deletion Task 5 reuses `_clear_messages()`'s empty-state restore.
 
-- [ ] **Step 1: Add i18n keys**
+- [x] **Step 1: Add i18n keys**
 
 In `ui/i18n.py` STRINGS, next to the other `chat.*` keys:
 
@@ -319,7 +319,7 @@ In `ui/i18n.py` STRINGS, next to the other `chat.*` keys:
 },
 ```
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 Extend `tests/ui/test_chat.py`:
 
@@ -349,12 +349,12 @@ def test_cancel_button_uses_outline_not_danger(tmp_path):
     win.hide()
 ```
 
-- [ ] **Step 3: Run tests to verify they fail**
+- [x] **Step 3: Run tests to verify they fail**
 
 Run: `QT_QPA_PLATFORM=offscreen .venv/bin/pytest tests/ui/test_chat.py -v -k "sidebar_has or empty_state or outline"`
 Expected: AttributeError / assertion failures.
 
-- [ ] **Step 4: Implement**
+- [x] **Step 4: Implement**
 
 In `ChatWindow.__init__` (`ui/gui/main_window.py`):
 - Create `self._sessions_header = QLabel(self)` with `setObjectName("sessions_header")`; insert above `self._sessions` in `side_layout`.
@@ -368,12 +368,12 @@ In `ChatWindow.__init__` (`ui/gui/main_window.py`):
 
 Check `tests/ui/test_chat.py` for any assertion on the cancel button's old `danger` objectName or on `_cancel` styling and update it to `outline` (behavior unchanged).
 
-- [ ] **Step 5: Run tests and the whole suite**
+- [x] **Step 5: Run tests and the whole suite**
 
 Run: `QT_QPA_PLATFORM=offscreen .venv/bin/pytest tests/ui/test_chat.py -q && QT_QPA_PLATFORM=offscreen .venv/bin/pytest tests -q`
 Expected: PASS (fix any collateral test that referenced the old objectName).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add ui/gui/main_window.py ui/i18n.py ui/theme.py tests/ui/test_chat.py
@@ -392,7 +392,7 @@ git commit -m "feat(gui): sidebar header, pill new-chat, empty state, neutral ou
 - Consumes: existing `settings.section_*` i18n keys (`i18n.py:72-76`); existing widget attributes (`self._lang`, `self._theme`, `self._provider_type`, …) — **all attribute names must stay unchanged** so existing load/save tests pass untouched.
 - Produces: a `QTabWidget` with five titled tabs; `_status` and the save/close row remain below the tab widget.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Extend `tests/ui/test_settings.py`:
 
@@ -414,12 +414,12 @@ def test_settings_has_five_titled_tabs(tmp_path):
     win.deleteLater()
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `QT_QPA_PLATFORM=offscreen .venv/bin/pytest tests/ui/test_settings.py::test_settings_has_five_titled_tabs -v`
 Expected: FAIL — no QTabWidget.
 
-- [ ] **Step 3: Restructure the layout**
+- [x] **Step 3: Restructure the layout**
 
 In `SettingsWindow.__init__` (`ui/settings.py`), replace the direct `layout.addWidget(general_box)` sequence with a `QTabWidget`:
 
@@ -430,12 +430,12 @@ In `SettingsWindow.__init__` (`ui/settings.py`), replace the direct `layout.addW
 - Do not rename any widget attributes; do not touch `_save`/`load` logic.
 - Language switching is live (`language_bridge`); extend `retranslate()` (or `_on_language_changed`) to re-set all five `setTabText` labels from the `settings.section_*` keys, otherwise tab titles stay in the old language after a switch.
 
-- [ ] **Step 4: Run tests and the whole suite**
+- [x] **Step 4: Run tests and the whole suite**
 
 Run: `QT_QPA_PLATFORM=offscreen .venv/bin/pytest tests/ui/test_settings.py -q && QT_QPA_PLATFORM=offscreen .venv/bin/pytest tests -q`
 Expected: PASS — existing save/load tests keep working because attribute names are unchanged.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add ui/settings.py tests/ui/test_settings.py
@@ -455,7 +455,7 @@ git commit -m "feat(settings): restructure into five titled tabs"
 - Consumes: `HistoryStore.delete_session(session_id)` (`ui/history.py:105`); `ChatWindow._busy`, `_runtime.cancel_active_task()` (`core/agent/runtime.py:154`); `_clear_messages()`/`_reload_sessions()`/`new_chat()` from Task 3 (empty-state restore included).
 - Produces: module-level `confirm_delete_session(parent, title: str) -> bool` in `main_window.py` (monkeypatch seam for tests); `ChatWindow._delete_session(session_id: str) -> None`; `ChatWindow._on_session_menu(pos) -> None`.
 
-- [ ] **Step 1: Add i18n keys**
+- [x] **Step 1: Add i18n keys**
 
 ```python
 "sessions.delete": {"tr": "Sohbeti sil", "en": "Delete chat"},
@@ -466,7 +466,7 @@ git commit -m "feat(settings): restructure into five titled tabs"
 "sessions.delete_cancel": {"tr": "Vazgeç", "en": "Cancel"},
 ```
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 Extend `tests/ui/test_chat.py` (reuse `_make_window`, `FakeRuntime`):
 
@@ -625,12 +625,12 @@ def test_confirm_delete_session_builds_dialog_with_danger_button():
 
 (The last test only pins importability; dialog interaction is covered by the monkeypatched seams.)
 
-- [ ] **Step 3: Run tests to verify they fail**
+- [x] **Step 3: Run tests to verify they fail**
 
 Run: `QT_QPA_PLATFORM=offscreen .venv/bin/pytest tests/ui/test_chat.py -v -k "delete or cancelled_confirm or send_after"`
 Expected: FAIL — `confirm_delete_session` / `_delete_session` do not exist.
 
-- [ ] **Step 4: Implement**
+- [x] **Step 4: Implement**
 
 In `ui/gui/main_window.py`:
 
@@ -659,12 +659,12 @@ In `ui/gui/main_window.py`:
 
 - **Late-signal guards** (Review Focus #3): `Event` carries `.session_id` (`core/events.py`). In `_on_assistant`, `_on_error`, `_on_cancelled`, skip the `self._history.append(...)` and transcript append when `event.session_id != self._session_id` — this covers both "deleted active session" (`_session_id is None`) and "deleted, then sent a new message" (stale event id ≠ new id). `_on_finished` keeps its unconditional `_set_busy(False)` (cancel of any task ends the UI busy state) but must not touch history.
 
-- [ ] **Step 5: Run tests and the whole suite**
+- [x] **Step 5: Run tests and the whole suite**
 
 Run: `QT_QPA_PLATFORM=offscreen .venv/bin/pytest tests/ui/test_chat.py -q && QT_QPA_PLATFORM=offscreen .venv/bin/pytest tests -q`
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add ui/gui/main_window.py ui/i18n.py tests/ui/test_chat.py
@@ -678,7 +678,7 @@ git commit -m "feat(gui): right-click chat deletion with confirmation and active
 **Files:**
 - None new; verification only.
 
-- [ ] **Step 1: Full suite + compile pass**
+- [x] **Step 1: Full suite + compile pass**
 
 ```bash
 QT_QPA_PLATFORM=offscreen .venv/bin/pytest tests -q
@@ -687,7 +687,7 @@ QT_QPA_PLATFORM=offscreen .venv/bin/pytest tests -q
 
 Expected: all tests PASS; compile OK.
 
-- [ ] **Step 2: Smoke-launch the GUI offscreen and capture screenshots**
+- [x] **Step 2: Smoke-launch the GUI offscreen and capture screenshots**
 
 ```bash
 QT_QPA_PLATFORM=offscreen timeout 15 .venv/bin/python -c "
@@ -714,10 +714,10 @@ print('ok')
 
 Expected: prints a font id != -1; `artifacts/main_dark.png` and `artifacts/main_light.png` exist (manual visual check of palette/radii/focus). No exceptions. QSS parse errors surface as Qt warnings — Task 1's `test_qss_parses_without_qt_warnings` already guards this.
 
-- [ ] **Step 3: Commit any loose ends (or skip when clean)**
+- [x] **Step 3: Commit any loose ends (or skip when clean)**
 
 If verification surfaced small fixes, commit them with a `fix:` message; otherwise proceed.
 
-- [ ] **Step 4: Append completion ledger**
+- [x] **Step 4: Append completion ledger**
 
 Append Task 1–6 completion lines to `.superpowers/sdd/2026-10-10-gui-renewal/progress.md` (create the directory as part of execution setup via the executing-plans / subagent-driven-development skill).
