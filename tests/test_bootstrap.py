@@ -46,3 +46,51 @@ def test_build_runtime_respects_screen_control_disabled(tmp_path):
         settings_path=sp, secrets_path=kp, provider=FakeProvider([]), client_factory=lambda: object()
     )
     assert rt.registry.names() == []
+
+
+def test_live_screen_control_token_reads_data_dir_file(tmp_path, monkeypatch):
+    import core.bootstrap as bs
+
+    monkeypatch.setattr(bs, "config_dir", lambda: tmp_path)
+    assert bs.live_screen_control_token() is None  # no .token yet
+    (tmp_path / ".token").write_text("abc123")
+    assert bs.live_screen_control_token() == "abc123"
+    (tmp_path / ".token").write_text("   ")  # blank -> None
+    assert bs.live_screen_control_token() is None
+
+
+def test_client_factory_prefers_live_token_over_stale_secrets(tmp_path, monkeypatch):
+    """Regression: after a server restart the cached secrets token is stale and
+    every tool call 401s. The factory must use the LIVE .token file instead."""
+    import core.bootstrap as bs
+    import vendor.sc_server.sdk as sdk
+
+    monkeypatch.setattr(bs, "config_dir", lambda: tmp_path)
+    (tmp_path / ".token").write_text("LIVE_TOKEN")
+    recorded = {}
+
+    class FakeSC:
+        def __init__(self, host=None, port=None, api_key=None):
+            recorded["api_key"] = api_key
+
+    monkeypatch.setattr(sdk, "ScreenControl", FakeSC)
+    factory = bs.default_client_factory({}, {"screen_control_api_key": "STALE_KEY"})
+    factory()
+    assert recorded["api_key"] == "LIVE_TOKEN"
+
+
+def test_client_factory_falls_back_to_secrets_without_token_file(tmp_path, monkeypatch):
+    import core.bootstrap as bs
+    import vendor.sc_server.sdk as sdk
+
+    monkeypatch.setattr(bs, "config_dir", lambda: tmp_path)  # no .token
+    recorded = {}
+
+    class FakeSC:
+        def __init__(self, host=None, port=None, api_key=None):
+            recorded["api_key"] = api_key
+
+    monkeypatch.setattr(sdk, "ScreenControl", FakeSC)
+    factory = bs.default_client_factory({}, {"screen_control_api_key": "FROM_SECRETS"})
+    factory()
+    assert recorded["api_key"] == "FROM_SECRETS"

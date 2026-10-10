@@ -20,15 +20,39 @@ DEFAULT_SETTINGS = config_dir() / "settings.json"
 DEFAULT_SECRETS = config_dir() / "secrets.json"
 
 
+def live_screen_control_token() -> str | None:
+    """Read the running screen-control server's session token.
+
+    The server regenerates its session token on every start and writes it to
+    ``$SCREEN_CONTROL_DATA_DIR/.token`` (the same ``config_dir()`` we spawn it
+    with). The ``screen_control_api_key`` cached in secrets goes stale after a
+    server restart, so callers must prefer this live token and fall back to
+    secrets only when the file is unavailable.
+    """
+    token_file = config_dir() / ".token"
+    try:
+        if token_file.exists():
+            token = token_file.read_text(encoding="utf-8").strip()
+            return token or None
+    except OSError:
+        pass
+    return None
+
+
 def default_client_factory(settings: dict, secrets: dict) -> Callable[[], Any]:
     def factory():
         from vendor.sc_server.sdk import ScreenControl  # lazy — only when a tool runs
 
         sc_cfg = settings.get("screen_control") or {}
+        # Prefer the LIVE server token over the (possibly stale) cached secrets
+        # value — otherwise every tool call 401s after the server restarts.
+        token = live_screen_control_token() or secrets.get(
+            "screen_control_api_key"
+        )
         return ScreenControl(
             host=sc_cfg.get("host", "127.0.0.1"),
             port=int(sc_cfg.get("port", 8745)),
-            api_key=secrets.get("screen_control_api_key"),
+            api_key=token,
         )
 
     return factory
