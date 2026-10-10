@@ -3,8 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- GSC verification: replace content below with your verification code -->
-  <!-- <meta name="google-site-verification" content="YOUR_CODE_HERE"> -->
+  <meta name="google-site-verification" content="DN_JodShVPapdB1r7m7HzUvDP_grr1r2i_oGJKR6k_E" />
   <title>NexaDesk — Open Source Desktop AI Assistant with Chat, Avatar & Screen Control</title>
   <meta name="description" content="NexaDesk is a free, open-source desktop AI assistant for Linux and Windows. Local-first chat GUI, animated avatar mode, built-in screen control. Works with Ollama, Groq, NVIDIA and OpenAI-compatible providers. Dark/light themes, Turkish and English.">
   <meta name="keywords" content="desktop AI assistant, local LLM, Ollama GUI, PySide6, open source AI, screen control, OCR, avatar assistant, Linux AI app, Windows AI assistant">
@@ -50,6 +49,19 @@
     .hero-gradient { background: linear-gradient(90deg, #FFFFFF 0%, #9B9B9B 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
     .skip-link { position: absolute; left: -9999px; }
     .skip-link:focus { left: 16px; top: 16px; z-index: 100; background: #F87171; color: #0D0D0D; padding: 8px 16px; border-radius: 8px; }
+    details summary::-webkit-details-marker { display: none; }
+    details summary { color: #ffffff; }
+    details[open] summary span { transform: rotate(45deg); }
+    .hero-stripes {
+      position: absolute; inset: 0;
+      background: repeating-linear-gradient(-45deg, transparent, transparent 80px, #F87171 80px, #DC2626 160px);
+      opacity: 0.06;
+      mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, transparent 60%);
+      -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .hero-section { position: relative; }
+    .hero-section > *:not(.hero-stripes) { position: relative; z-index: 1; }
   </style>
 </head>
 <body class="bg-base text-white font-sans antialiased">
@@ -67,7 +79,8 @@
 
   <main id="main">
     <!-- Hero -->
-    <section class="max-w-3xl mx-auto px-6 pt-20 pb-16 text-center">
+    <section class="hero-section max-w-3xl mx-auto px-6 pt-20 pb-16 text-center">
+      <div class="hero-stripes" aria-hidden="true"></div>
       <p class="reveal text-sm text-coral font-semibold mb-4 tracking-wide">Free &amp; open source · MIT license</p>
       <h1 class="reveal hero-gradient text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight mb-6" style="text-wrap: balance; max-width: 680px; margin-left: auto; margin-right: auto;">
         Talk to your computer.<br>It answers with actions.
@@ -162,35 +175,35 @@
       <h2 class="reveal text-2xl sm:text-3xl font-bold mb-12 text-center" style="text-wrap: balance;">Frequently asked questions</h2>
       <div class="space-y-4">
         <details class="reveal group rounded-2xl border border-neutral-700 bg-surface p-5">
-          <summary class="text-base font-semibold cursor-pointer list-none flex justify-between items-center">Which AI providers does NexaDesk support?<span class="text-coral group-open:rotate-45 transition-transform duration-500 ease-fluid" aria-hidden="true">+</span></summary>
+          <summary class="text-white text-base font-semibold cursor-pointer list-none flex justify-between items-center">Which AI providers does NexaDesk support?<span class="text-coral group-open:rotate-45 transition-transform duration-500 ease-fluid" aria-hidden="true">+</span></summary>
           <p class="text-sm text-neutral-400 mt-3" style="text-wrap: pretty;">Ollama (fully local), Groq, NVIDIA NIM, Google Gemini, and any OpenAI-compatible endpoint. You can switch providers at any time in the Settings window.</p>
         </details>
         <details class="reveal group rounded-2xl border border-neutral-700 bg-surface p-5">
-          <summary class="text-base font-semibold cursor-pointer list-none flex justify-between items-center">Does it work offline?<span class="text-coral group-open:rotate-45 transition-transform duration-500 ease-fluid" aria-hidden="true">+</span></summary>
+          <summary class="text-white text-base font-semibold cursor-pointer list-none flex justify-between items-center">Does it work offline?<span class="text-coral group-open:rotate-45 transition-transform duration-500 ease-fluid" aria-hidden="true">+</span></summary>
           <p class="text-sm text-neutral-400 mt-3" style="text-wrap: pretty;">Yes, if you use Ollama with a local model. Everything runs on your machine: chat, history, avatar, and screen control. No internet required.</p>
         </details>
         <details class="reveal group rounded-2xl border border-neutral-700 bg-surface p-5">
-          <summary class="text-base font-semibold cursor-pointer list-none flex justify-between items-center">What can the screen control do?<span class="text-coral group-open:rotate-45 transition-transform duration-500 ease-fluid" aria-hidden="true">+</span></summary>
+          <summary class="text-white text-base font-semibold cursor-pointer list-none flex justify-between items-center">What can the screen control do?<span class="text-coral group-open:rotate-45 transition-transform duration-500 ease-fluid" aria-hidden="true">+</span></summary>
           <p class="text-sm text-neutral-400 mt-3" style="text-wrap: pretty;">Take screenshots, run OCR to read text on screen, control the mouse and keyboard, and manage windows. The server is embedded in the app and starts automatically when enabled.</p>
         </details>
         <details class="reveal group rounded-2xl border border-neutral-700 bg-surface p-5">
-          <summary class="text-base font-semibold cursor-pointer list-none flex justify-between items-center">Where is my data stored?<span class="text-coral group-open:rotate-45 transition-transform duration-500 ease-fluid" aria-hidden="true">+</span></summary>
+          <summary class="text-white text-base font-semibold cursor-pointer list-none flex justify-between items-center">Where is my data stored?<span class="text-coral group-open:rotate-45 transition-transform duration-500 ease-fluid" aria-hidden="true">+</span></summary>
           <p class="text-sm text-neutral-400 mt-3" style="text-wrap: pretty;">Chat history is stored in a local SQLite database. API keys live in a secrets file with restricted permissions that is never included in packages or the repository.</p>
         </details>
         <details class="reveal group rounded-2xl border border-neutral-700 bg-surface p-5">
-          <summary class="text-base font-semibold cursor-pointer list-none flex justify-between items-center">Which operating systems are supported?<span class="text-coral group-open:rotate-45 transition-transform duration-500 ease-fluid" aria-hidden="true">+</span></summary>
+          <summary class="text-white text-base font-semibold cursor-pointer list-none flex justify-between items-center">Which operating systems are supported?<span class="text-coral group-open:rotate-45 transition-transform duration-500 ease-fluid" aria-hidden="true">+</span></summary>
           <p class="text-sm text-neutral-400 mt-3" style="text-wrap: pretty;">Linux (Ubuntu/Debian .deb and portable tar.gz) and Windows 10/11 (zip). macOS is not officially supported yet but may work from source.</p>
         </details>
         <details class="reveal group rounded-2xl border border-neutral-700 bg-surface p-5">
-          <summary class="text-base font-semibold cursor-pointer list-none flex justify-between items-center">Can I build it from source?<span class="text-coral group-open:rotate-45 transition-transform duration-500 ease-fluid" aria-hidden="true">+</span></summary>
+          <summary class="text-white text-base font-semibold cursor-pointer list-none flex justify-between items-center">Can I build it from source?<span class="text-coral group-open:rotate-45 transition-transform duration-500 ease-fluid" aria-hidden="true">+</span></summary>
           <p class="text-sm text-neutral-400 mt-3" style="text-wrap: pretty;">Yes. Clone the repository, create a Python 3.12 virtualenv, install requirements, and run <code class="bg-surface2 px-1.5 py-0.5 rounded text-coral">python -m ui.app</code>. Full instructions are in the README.</p>
         </details>
         <details class="reveal group rounded-2xl border border-neutral-700 bg-surface p-5">
-          <summary class="text-base font-semibold cursor-pointer list-none flex justify-between items-center">Is the avatar mode just for fun?<span class="text-coral group-open:rotate-45 transition-transform duration-500 ease-fluid" aria-hidden="true">+</span></summary>
+          <summary class="text-white text-base font-semibold cursor-pointer list-none flex justify-between items-center">Is the avatar mode just for fun?<span class="text-coral group-open:rotate-45 transition-transform duration-500 ease-fluid" aria-hidden="true">+</span></summary>
           <p class="text-sm text-neutral-400 mt-3" style="text-wrap: pretty;">It is a full working mode. The avatar shows live state (thinking, working, speaking) while the same agent runs tools in the background. Many users prefer it over the chat window for quick tasks.</p>
         </details>
         <details class="reveal group rounded-2xl border border-neutral-700 bg-surface p-5">
-          <summary class="text-base font-semibold cursor-pointer list-none flex justify-between items-center">How do I switch between dark and light themes?<span class="text-coral group-open:rotate-45 transition-transform duration-500 ease-fluid" aria-hidden="true">+</span></summary>
+          <summary class="text-white text-base font-semibold cursor-pointer list-none flex justify-between items-center">How do I switch between dark and light themes?<span class="text-coral group-open:rotate-45 transition-transform duration-500 ease-fluid" aria-hidden="true">+</span></summary>
           <p class="text-sm text-neutral-400 mt-3" style="text-wrap: pretty;">One click on the Theme button in the sidebar, or from Settings. The change applies instantly across the whole app. Turkish and English switch the same way.</p>
         </details>
       </div>
