@@ -6,18 +6,36 @@
   <title>404 — NexaDesk</title>
   <meta name="robots" content="noindex">
   <link rel="icon" type="image/svg+xml" href="/NexaDesk/favicon.svg">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = { theme: { extend: { fontFamily: { sans: ['Manrope', 'sans-serif'] }, colors: { base: '#0D0D0D', coral: '#F87171' } } } };
-  </script>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/NexaDesk/styles.css">
+  <style>
+    .notfound {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 0 24px;
+    }
+    .notfound-code {
+      font-size: 60px;
+      line-height: 1;
+      font-weight: 700;
+      color: var(--coral);
+      margin: 0 0 16px;
+    }
+    .notfound h1 { margin: 0 0 8px; }
+    .notfound p { color: var(--muted); margin: 0 0 32px; }
+  </style>
 </head>
-<body class="bg-base text-white font-sans min-h-screen flex items-center justify-center">
-  <main class="text-center px-6">
-    <p class="text-6xl font-bold text-coral mb-4">404</p>
-    <h1 class="text-2xl font-semibold mb-2">Page not found</h1>
-    <p class="text-neutral-400 mb-8">The page you are looking for does not exist.</p>
-    <a href="/NexaDesk/" class="bg-coral text-base font-semibold px-6 py-3 rounded-full hover:opacity-90 transition-opacity">Back to NexaDesk</a>
+<body>
+  <main class="notfound">
+    <div>
+      <p class="notfound-code">404</p>
+      <h1>Page not found</h1>
+      <p>The page you are looking for does not exist.</p>
+      <a href="/NexaDesk/" class="btn btn-primary">Back to NexaDesk</a>
+    </div>
   </main>
 </body>
 </html>

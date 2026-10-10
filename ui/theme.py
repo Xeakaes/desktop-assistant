@@ -94,6 +94,9 @@ QPlainTextEdit#chat_input, QLineEdit {{ background: {t['surface']};
 QPlainTextEdit#chat_input:focus, QLineEdit:focus {{ border-color: {t['accent']}; }}
 QLabel {{ color: {t['fg']}; background: transparent; }}
 QLabel#muted {{ color: {t['fg_muted']}; }}
+QDialog, QMessageBox {{ background: {t['bg']}; color: {t['fg']}; }}
+QTextEdit {{ background: {t['surface']}; color: {t['fg']};
+    border: 1px solid {t['border']}; border-radius: 8px; }}
 QPushButton {{ background: {t['accent']}; color: {t['on_accent']};
     border: 2px solid {t['accent']}; border-radius: 10px; padding: 8px 16px; }}
 QPushButton:hover {{ background: {t['accent_hover']}; border-color: {t['accent_hover']}; }}
