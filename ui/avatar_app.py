@@ -25,6 +25,7 @@ from ui.avatar.state_machine import reduce_event
 from ui.avatar.window import AvatarWindow
 from ui.bridge import QtBridge
 from ui.bubble import BubbleWindow
+from ui.fonts import load_fonts
 from ui.history import HistoryStore, default_db_path
 from ui.i18n import i18n
 from ui.paths import SECRETS_PATH, SETTINGS_PATH, ui_json_path
@@ -220,6 +221,7 @@ def build_ui() -> App:
 
     ensure_user_config()
     app = QApplication.instance() or QApplication(sys.argv)
+    load_fonts(app)
     prefs = load_prefs(ui_json_path())
     i18n.set_language(prefs.lang)
     apply_theme(app, prefs.theme)

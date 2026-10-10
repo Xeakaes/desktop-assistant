@@ -17,6 +17,7 @@ from core.bootstrap import build_runtime
 from core.paths import ensure_user_config
 from ui.bridge import QtBridge
 from ui.chooser import ModeChooser
+from ui.fonts import load_fonts
 from ui.history import HistoryStore, default_db_path
 from ui.i18n import i18n
 from ui.paths import SETTINGS_PATH, SECRETS_PATH, ui_json_path
@@ -27,6 +28,7 @@ from ui.theme import apply_theme
 def main() -> int:
     ensure_user_config()
     app = QApplication.instance() or QApplication(sys.argv)
+    load_fonts(app)
     ui_json = ui_json_path()
     prefs = load_prefs(ui_json)
     i18n.set_language(prefs.lang)
