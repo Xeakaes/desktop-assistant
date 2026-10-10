@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- GSC verification: replace content below with your verification code -->
+  <!-- <meta name="google-site-verification" content="YOUR_CODE_HERE"> -->
+  <title>NexaDesk — Open Source Desktop AI Assistant with Chat, Avatar & Screen Control</title>
+  <meta name="description" content="NexaDesk is a free, open-source desktop AI assistant for Linux and Windows. Local-first chat GUI, animated avatar mode, built-in screen control. Works with Ollama, Groq, NVIDIA and OpenAI-compatible providers. Dark/light themes, Turkish and English.">
+  <meta name="keywords" content="desktop AI assistant, local LLM, Ollama GUI, PySide6, open source AI, screen control, OCR, avatar assistant, Linux AI app, Windows AI assistant">
+  <link rel="canonical" href="https://xeakaes.github.io/NexaDesk/">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://xeakaes.github.io/NexaDesk/">
+  <meta property="og:title" content="NexaDesk — Open Source Desktop AI Assistant">
+  <meta property="og:description" content="Local-first chat GUI, animated avatar, built-in screen control. Free and open source for Linux and Windows.">
+  <meta property="og:image" content="https://xeakaes.github.io/NexaDesk/og.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="NexaDesk — Open Source Desktop AI Assistant">
+  <meta name="twitter:description" content="Local-first chat GUI, animated avatar, built-in screen control. Free and open source.">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Manrope', 'sans-serif'] },
+          colors: {
+            base: '#0D0D0D',
+            surface: '#1F1F1F',
+            surface2: '#272727',
+            coral: '#F87171',
+            coralDark: '#DC2626',
+          },
+          transitionTimingFunction: {
+            fluid: 'cubic-bezier(0.32, 0.72, 0, 1)',
+          },
+        },
+      },
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    html { scroll-behavior: smooth; }
+    .reveal { opacity: 0; transform: translateY(16px); filter: blur(4px); transition: opacity 800ms cubic-bezier(0.32,0.72,0,1), transform 800ms cubic-bezier(0.32,0.72,0,1), filter 800ms cubic-bezier(0.32,0.72,0,1); }
+    .reveal.visible { opacity: 1; transform: translateY(0); filter: blur(0); }
+    .tagline-word { opacity: 0.28; transition: opacity 600ms cubic-bezier(0.32,0.72,0,1); }
+    .tagline-word.active { opacity: 1; }
+    .hero-gradient { background: linear-gradient(90deg, #FFFFFF 0%, #9B9B9B 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .skip-link { position: absolute; left: -9999px; }
+    .skip-link:focus { left: 16px; top: 16px; z-index: 100; background: #F87171; color: #0D0D0D; padding: 8px 16px; border-radius: 8px; }
+  </style>
+</head>
+<body class="bg-base text-white font-sans antialiased">
+  <a href="#main" class="skip-link">Skip to content</a>
+
+  <nav class="mt-6 mx-auto w-max rounded-full bg-white/5 backdrop-blur-xl border border-white/10 px-6 py-3 flex items-center gap-6">
+    <a href="#" class="text-lg font-semibold text-white">Nexa<span class="text-coral">Desk</span></a>
+    <div class="hidden sm:flex items-center gap-5 text-sm text-neutral-400">
+      <a href="#features" class="hover:text-white transition-colors duration-500 ease-fluid">Features</a>
+      <a href="#how" class="hover:text-white transition-colors duration-500 ease-fluid">How it works</a>
+      <a href="#faq" class="hover:text-white transition-colors duration-500 ease-fluid">FAQ</a>
+    </div>
+    <a href="https://github.com/Xeakaes/NexaDesk/releases" class="bg-coral text-base text-sm font-semibold px-4 py-2 rounded-full hover:bg-coralDark active:scale-[0.98] transition-all duration-500 ease-fluid focus:outline-none focus:ring-2 focus:ring-coral focus:ring-offset-2 focus:ring-offset-base">Download</a>
+  </nav>
+
+  <main id="main">
+    <!-- Hero -->
+    <section class="max-w-3xl mx-auto px-6 pt-20 pb-16 text-center">
+      <p class="reveal text-sm text-coral font-semibold mb-4 tracking-wide">Free &amp; open source · MIT license</p>
+      <h1 class="reveal hero-gradient text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight mb-6" style="text-wrap: balance; max-width: 680px; margin-left: auto; margin-right: auto;">
+        Talk to your computer.<br>It answers with actions.
+      </h1>
+      <p class="reveal text-lg text-neutral-400 mb-8" style="max-width: 680px; margin-left: auto; margin-right: auto; text-wrap: pretty;">
+        NexaDesk is a local-first desktop AI assistant for Linux and Windows. Chat with tools, watch an animated avatar work, or let it control your screen — all in one lightweight app.
+      </p>
+      <div class="reveal flex flex-wrap items-center justify-center gap-4 mb-10">
+        <a href="https://github.com/Xeakaes/NexaDesk/releases" class="bg-coral text-base text-base font-semibold px-6 py-3 rounded-full hover:bg-coralDark active:scale-[0.98] transition-all duration-500 ease-fluid focus:outline-none focus:ring-2 focus:ring-coral focus:ring-offset-2 focus:ring-offset-base">Download latest release</a>
+        <a href="https://github.com/Xeakaes/NexaDesk" class="border-2 border-neutral-600 text-white text-base font-semibold px-6 py-3 rounded-full hover:bg-surface2 active:scale-[0.98] transition-all duration-500 ease-fluid focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-base">View source on GitHub</a>
+      </div>
+      <p class="reveal text-sm text-neutral-500">Python 3.12 · PySide6 · Works with Ollama, Groq, NVIDIA, Google &amp; any OpenAI-compatible API</p>
+      <div class="reveal mt-12 rounded-2xl border border-neutral-700 bg-surface p-2">
+        <img src="screenshot-dark.png" alt="NexaDesk chat interface in dark mode showing a conversation with tool activity" class="rounded-xl w-full" loading="lazy" width="1100" height="720">
+      </div>
+    </section>
+
+    <!-- Tagline reveal (mandatory) -->
+    <section class="max-w-3xl mx-auto px-6 py-24 text-center">
+      <p id="tagline" class="text-3xl sm:text-4xl lg:text-5xl font-bold leading-snug" style="text-wrap: balance;">
+        <!-- words wrapped by JS for per-word reveal -->
+      </p>
+    </section>
+
+    <!-- Benefits -->
+    <section id="features" class="max-w-5xl mx-auto px-6 py-16">
+      <h2 class="reveal text-2xl sm:text-3xl font-bold mb-12 text-center" style="text-wrap: balance;">What you get out of the box</h2>
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="reveal rounded-2xl border border-neutral-700 bg-surface p-6">
+          <div class="text-coral text-2xl mb-3" aria-hidden="true">⌘</div>
+          <h3 class="text-lg font-semibold mb-2">Chat that uses tools</h3>
+          <p class="text-sm text-neutral-400" style="text-wrap: pretty;">Ask it to take a screenshot, read text on your screen with OCR, move the mouse, or manage windows. It calls the tools and shows every step.</p>
+        </div>
+        <div class="reveal rounded-2xl border border-neutral-700 bg-surface p-6">
+          <div class="text-coral text-2xl mb-3" aria-hidden="true">◉</div>
+          <h3 class="text-lg font-semibold mb-2">Animated avatar mode</h3>
+          <p class="text-sm text-neutral-400" style="text-wrap: pretty;">A pixel-art character with a speech bubble that reacts in real time: idle, thinking, working, speaking, or error. Switch modes in one click.</p>
+        </div>
+        <div class="reveal rounded-2xl border border-neutral-700 bg-surface p-6">
+          <div class="text-coral text-2xl mb-3" aria-hidden="true">⌂</div>
+          <h3 class="text-lg font-semibold mb-2">Local-first privacy</h3>
+          <p class="text-sm text-neutral-400" style="text-wrap: pretty;">Run fully local models through Ollama. Your API keys stay in a local secrets file that is never committed or packaged. Chat history lives in a local SQLite database.</p>
+        </div>
+        <div class="reveal rounded-2xl border border-neutral-700 bg-surface p-6">
+          <div class="text-coral text-2xl mb-3" aria-hidden="true">◐</div>
+          <h3 class="text-lg font-semibold mb-2">Dark, light &amp; bilingual</h3>
+          <p class="text-sm text-neutral-400" style="text-wrap: pretty;">Switch between a near-black dark theme and a soft pastel light theme instantly. Full Turkish and English interface with instant language switching.</p>
+        </div>
+        <div class="reveal rounded-2xl border border-neutral-700 bg-surface p-6">
+          <div class="text-coral text-2xl mb-3" aria-hidden="true">▣</div>
+          <h3 class="text-lg font-semibold mb-2">Screen control built in</h3>
+          <p class="text-sm text-neutral-400" style="text-wrap: pretty;">Screenshot, OCR, mouse and keyboard control, window management — the server ships embedded in the package. No separate install required.</p>
+        </div>
+        <div class="reveal rounded-2xl border border-neutral-700 bg-surface p-6">
+          <div class="text-coral text-2xl mb-3" aria-hidden="true">⇄</div>
+          <h3 class="text-lg font-semibold mb-2">Any provider you like</h3>
+          <p class="text-sm text-neutral-400" style="text-wrap: pretty;">Ollama for fully local inference, or connect Groq, NVIDIA NIM, Google Gemini, and any OpenAI-compatible endpoint. Change providers in Settings.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- How it works -->
+    <section id="how" class="max-w-3xl mx-auto px-6 py-16">
+      <h2 class="reveal text-2xl sm:text-3xl font-bold mb-12 text-center" style="text-wrap: balance;">Up and running in three steps</h2>
+      <ol class="space-y-8">
+        <li class="reveal flex gap-5 items-start">
+          <span class="shrink-0 w-10 h-10 rounded-full bg-coral text-base font-bold flex items-center justify-center">1</span>
+          <div>
+            <h3 class="text-lg font-semibold mb-1">Download and install</h3>
+            <p class="text-sm text-neutral-400" style="text-wrap: pretty;">Grab the .deb, tar.gz, or Windows zip from the releases page. On Linux, one <code class="bg-surface2 px-1.5 py-0.5 rounded text-coral">dpkg -i</code> and you are done.</p>
+          </div>
+        </li>
+        <li class="reveal flex gap-5 items-start">
+          <span class="shrink-0 w-10 h-10 rounded-full bg-coral text-base font-bold flex items-center justify-center">2</span>
+          <div>
+            <h3 class="text-lg font-semibold mb-1">Pick your provider</h3>
+            <p class="text-sm text-neutral-400" style="text-wrap: pretty;">On first launch, choose Chat GUI or Avatar mode. Open Settings to connect Ollama locally or paste an API key for Groq, NVIDIA, or Google.</p>
+          </div>
+        </li>
+        <li class="reveal flex gap-5 items-start">
+          <span class="shrink-0 w-10 h-10 rounded-full bg-coral text-base font-bold flex items-center justify-center">3</span>
+          <div>
+            <h3 class="text-lg font-semibold mb-1">Start talking</h3>
+            <p class="text-sm text-neutral-400" style="text-wrap: pretty;">Type a message, or ask it to screenshot your screen and summarize what it sees. Switch to avatar mode any time from the sidebar.</p>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <!-- FAQ -->
+    <section id="faq" class="max-w-3xl mx-auto px-6 py-16">
+      <h2 class="reveal text-2xl sm:text-3xl font-bold mb-12 text-center" style="text-wrap: balance;">Frequently asked questions</h2>
+      <div class="space-y-4">
+        <details class="reveal group rounded-2xl border border-neutral-700 bg-surface p-5">
+          <summary class="text-base font-semibold cursor-pointer list-none flex justify-between items-center">Which AI providers does NexaDesk support?<span class="text-coral group-open:rotate-45 transition-transform duration-500 ease-fluid" aria-hidden="true">+</span></summary>
+          <p class="text-sm text-neutral-400 mt-3" style="text-wrap: pretty;">Ollama (fully local), Groq, NVIDIA NIM, Google Gemini, and any OpenAI-compatible endpoint. You can switch providers at any time in the Settings window.</p>
+        </details>
+        <details class="reveal group rounded-2xl border border-neutral-700 bg-surface p-5">
+          <summary class="text-base font-semibold cursor-pointer list-none flex justify-between items-center">Does it work offline?<span class="text-coral group-open:rotate-45 transition-transform duration-500 ease-fluid" aria-hidden="true">+</span></summary>
+          <p class="text-sm text-neutral-400 mt-3" style="text-wrap: pretty;">Yes, if you use Ollama with a local model. Everything runs on your machine: chat, history, avatar, and screen control. No internet required.</p>
+        </details>
+        <details class="reveal group rounded-2xl border border-neutral-700 bg-surface p-5">
+          <summary class="text-base font-semibold cursor-pointer list-none flex justify-between items-center">What can the screen control do?<span class="text-coral group-open:rotate-45 transition-transform duration-500 ease-fluid" aria-hidden="true">+</span></summary>
+          <p class="text-sm text-neutral-400 mt-3" style="text-wrap: pretty;">Take screenshots, run OCR to read text on screen, control the mouse and keyboard, and manage windows. The server is embedded in the app and starts automatically when enabled.</p>
+        </details>
+        <details class="reveal group rounded-2xl border border-neutral-700 bg-surface p-5">
+          <summary class="text-base font-semibold cursor-pointer list-none flex justify-between items-center">Where is my data stored?<span class="text-coral group-open:rotate-45 transition-transform duration-500 ease-fluid" aria-hidden="true">+</span></summary>
+          <p class="text-sm text-neutral-400 mt-3" style="text-wrap: pretty;">Chat history is stored in a local SQLite database. API keys live in a secrets file with restricted permissions that is never included in packages or the repository.</p>
+        </details>
+        <details class="reveal group rounded-2xl border border-neutral-700 bg-surface p-5">
+          <summary class="text-base font-semibold cursor-pointer list-none flex justify-between items-center">Which operating systems are supported?<span class="text-coral group-open:rotate-45 transition-transform duration-500 ease-fluid" aria-hidden="true">+</span></summary>
+          <p class="text-sm text-neutral-400 mt-3" style="text-wrap: pretty;">Linux (Ubuntu/Debian .deb and portable tar.gz) and Windows 10/11 (zip). macOS is not officially supported yet but may work from source.</p>
+        </details>
+        <details class="reveal group rounded-2xl border border-neutral-700 bg-surface p-5">
+          <summary class="text-base font-semibold cursor-pointer list-none flex justify-between items-center">Can I build it from source?<span class="text-coral group-open:rotate-45 transition-transform duration-500 ease-fluid" aria-hidden="true">+</span></summary>
+          <p class="text-sm text-neutral-400 mt-3" style="text-wrap: pretty;">Yes. Clone the repository, create a Python 3.12 virtualenv, install requirements, and run <code class="bg-surface2 px-1.5 py-0.5 rounded text-coral">python -m ui.app</code>. Full instructions are in the README.</p>
+        </details>
+        <details class="reveal group rounded-2xl border border-neutral-700 bg-surface p-5">
+          <summary class="text-base font-semibold cursor-pointer list-none flex justify-between items-center">Is the avatar mode just for fun?<span class="text-coral group-open:rotate-45 transition-transform duration-500 ease-fluid" aria-hidden="true">+</span></summary>
+          <p class="text-sm text-neutral-400 mt-3" style="text-wrap: pretty;">It is a full working mode. The avatar shows live state (thinking, working, speaking) while the same agent runs tools in the background. Many users prefer it over the chat window for quick tasks.</p>
+        </details>
+        <details class="reveal group rounded-2xl border border-neutral-700 bg-surface p-5">
+          <summary class="text-base font-semibold cursor-pointer list-none flex justify-between items-center">How do I switch between dark and light themes?<span class="text-coral group-open:rotate-45 transition-transform duration-500 ease-fluid" aria-hidden="true">+</span></summary>
+          <p class="text-sm text-neutral-400 mt-3" style="text-wrap: pretty;">One click on the Theme button in the sidebar, or from Settings. The change applies instantly across the whole app. Turkish and English switch the same way.</p>
+        </details>
+      </div>
+    </section>
+
+    <!-- Final CTA -->
+    <section class="max-w-3xl mx-auto px-6 py-20 text-center">
+      <h2 class="reveal text-2xl sm:text-3xl font-bold mb-4" style="text-wrap: balance;">Ready to try it?</h2>
+      <p class="reveal text-neutral-400 mb-8" style="text-wrap: pretty;">NexaDesk is free, open source, and runs entirely on your machine.</p>
+      <div class="reveal flex flex-wrap items-center justify-center gap-4">
+        <a href="https://github.com/Xeakaes/NexaDesk/releases" class="bg-coral text-base text-base font-semibold px-6 py-3 rounded-full hover:bg-coralDark active:scale-[0.98] transition-all duration-500 ease-fluid focus:outline-none focus:ring-2 focus:ring-coral focus:ring-offset-2 focus:ring-offset-base">Download latest release</a>
+        <a href="https://github.com/Xeakaes/NexaDesk" class="border-2 border-neutral-600 text-white text-base font-semibold px-6 py-3 rounded-full hover:bg-surface2 active:scale-[0.98] transition-all duration-500 ease-fluid focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-base">Star on GitHub</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="border-t border-neutral-800 py-10 text-center text-sm text-neutral-500">
+    <p class="mb-2">NexaDesk is open source under the <a href="https://github.com/Xeakaes/NexaDesk/blob/main/LICENSE" class="text-coral hover:underline">MIT license</a>.</p>
+    <p>
+      <a href="https://github.com/Xeakaes/NexaDesk" class="hover:text-white transition-colors duration-500 ease-fluid mr-4">GitHub</a>
+      <a href="https://github.com/Xeakaes/NexaDesk/releases" class="hover:text-white transition-colors duration-500 ease-fluid mr-4">Releases</a>
+      <a href="https://github.com/Xeakaes/NexaDesk/issues" class="hover:text-white transition-colors duration-500 ease-fluid">Issues</a>
+    </p>
+  </footer>
+
+  <script>
+    // Tagline reveal: per-word activation on scroll
+    (function () {
+      var el = document.getElementById('tagline');
+      var text = 'Your AI assistant that does not just talk. It screenshots, reads, clicks, and types for you.';
+      var words = text.split(' ');
+      el.innerHTML = words.map(function (w) {
+        return '<span class="tagline-word">' + w + '</span>';
+      }).join(' ');
+      var spans = el.querySelectorAll('.tagline-word');
+      var observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting) {
+            spans.forEach(function (s, i) {
+              setTimeout(function () { s.classList.add('active'); }, i * 60);
+            });
+            observer.disconnect();
+          }
+        });
+      }, { threshold: 0.4 });
+      observer.observe(el);
+    })();
+
+    // Scroll reveals
+    (function () {
+      var els = document.querySelectorAll('.reveal');
+      var observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+            observer.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.12 });
+      els.forEach(function (el) { observer.observe(el); });
+    })();
+  </script>
+</body>
+</html>
