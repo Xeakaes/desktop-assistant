@@ -77,7 +77,10 @@ class ChatWindow(QMainWindow):
 
         # --- sidebar ---
         self._new_chat_btn = QPushButton(self)
+        self._new_chat_btn.setObjectName("new_chat")
         self._new_chat_btn.clicked.connect(self.new_chat)
+        self._sessions_header = QLabel(self)
+        self._sessions_header.setObjectName("sessions_header")
         self._sessions = QListWidget(self)
         self._sessions.itemClicked.connect(self._on_session_click)
         self._theme_btn = QPushButton(self)
@@ -91,6 +94,7 @@ class ChatWindow(QMainWindow):
 
         side_layout = QVBoxLayout()
         side_layout.addWidget(self._new_chat_btn)
+        side_layout.addWidget(self._sessions_header)
         side_layout.addWidget(self._sessions, 1)
         side_layout.addWidget(self._theme_btn)
         side_layout.addWidget(self._settings_btn)
@@ -102,8 +106,19 @@ class ChatWindow(QMainWindow):
         self._side_inner.setFixedWidth(260)
 
         # --- chat ---
+        self._empty_state = QFrame(self)
+        self._empty_state.setObjectName("empty_state")
+        empty_lay = QVBoxLayout(self._empty_state)
+        self._empty_title = QLabel(self._empty_state)
+        self._empty_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._empty_hint = QLabel(self._empty_state)
+        self._empty_hint.setObjectName("muted")
+        self._empty_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        empty_lay.addWidget(self._empty_title)
+        empty_lay.addWidget(self._empty_hint)
         self._msg_area = QWidget()
         self._msg_layout = QVBoxLayout(self._msg_area)
+        self._msg_layout.addWidget(self._empty_state)
         self._msg_layout.addStretch(1)
         self._scroll = QScrollArea(self)
         self._scroll.setObjectName("chat")
@@ -120,7 +135,7 @@ class ChatWindow(QMainWindow):
         self._send_btn = QPushButton(self)
         self._send_btn.clicked.connect(self._send)
         self._cancel_btn = QPushButton(self)
-        self._cancel_btn.setObjectName("danger")
+        self._cancel_btn.setObjectName("outline")
         self._cancel_btn.clicked.connect(self._cancel)
 
         bottom = QHBoxLayout()
@@ -171,6 +186,7 @@ class ChatWindow(QMainWindow):
         t = i18n.t
         self.setWindowTitle(t("app.title"))
         self._new_chat_btn.setText(t("sidebar.new_chat"))
+        self._sessions_header.setText(t("sidebar.sessions"))
         self._theme_btn.setText(t("sidebar.theme"))
         self._settings_btn.setText(t("sidebar.settings"))
         self._switch_avatar_btn.setText(t("sidebar.switch_avatar"))
@@ -181,6 +197,8 @@ class ChatWindow(QMainWindow):
         self._chat_input.setPlaceholderText(t("chat.input_placeholder"))
         self._send_btn.setText(t("chat.send"))
         self._cancel_btn.setText(t("chat.cancel"))
+        self._empty_title.setText(t("chat.empty_title"))
+        self._empty_hint.setText(t("chat.empty_hint"))
 
     def _toggle_theme(self) -> None:
         prefs = load_prefs(self._ui_json_path)
@@ -259,6 +277,7 @@ class ChatWindow(QMainWindow):
                 m["widget"].setParent(None)
                 m["widget"].deleteLater()
         self._messages.clear()
+        self._empty_state.show()
 
     def _reload_sessions(self) -> None:
         self._sessions.clear()
@@ -282,6 +301,7 @@ class ChatWindow(QMainWindow):
     # --- chat ---
 
     def _append(self, role: str, text: str) -> dict:
+        self._empty_state.hide()
         name = {"user": "msg_user", "assistant": "msg_assistant", "tool": "msg_tool"}.get(
             role, "msg_assistant"
         )

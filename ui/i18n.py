@@ -36,6 +36,11 @@ STRINGS: dict[str, dict[str, str]] = {
     "chat.tool_prefix": {"tr": "Araç", "en": "Tool"},
     "chat.cancelled": {"tr": "Görev iptal edildi.", "en": "Task cancelled."},
     "chat.error_prefix": {"tr": "Hata", "en": "Error"},
+    "chat.empty_title": {"tr": "Merhaba! Bir sohbet başlat.", "en": "Hi! Start a chat."},
+    "chat.empty_hint": {
+        "tr": "Asistana ne sormak istersiniz?",
+        "en": "What would you like to ask?",
+    },
     "settings.title": {"tr": "Ayarlar — Masaüstü Asistanı", "en": "Settings — Desktop Assistant"},
     "settings.theme": {"tr": "Tema", "en": "Theme"},
     "settings.theme_dark": {"tr": "Karanlık", "en": "Dark"},

@@ -230,3 +230,28 @@ def test_send_session_id_snapshotted_at_send_time(tmp_path, monkeypatch):
     created[1]._target(*created[1]._args)
     assert started == [old_sid, old_sid], "task must bind to the session at send time"
     win.hide()
+
+
+def test_sidebar_has_sessions_header(tmp_path):
+    app, win = _make_window(tmp_path)
+    assert win._sessions_header.objectName() == "sessions_header"
+    assert win._sessions_header.text() == "Geçmiş sohbetler"  # i18n default tr
+    win.hide()
+
+
+def test_empty_state_visible_when_no_messages_then_hides(tmp_path):
+    app, win = _make_window(tmp_path)
+    win._runtime = FakeRuntime(win)
+    assert not win._empty_state.isHidden()
+    win._chat_input.setPlainText("selam")
+    win._send()
+    assert win._empty_state.isHidden()
+    win.new_chat()
+    assert not win._empty_state.isHidden()
+    win.hide()
+
+
+def test_cancel_button_uses_outline_not_danger(tmp_path):
+    app, win = _make_window(tmp_path)
+    assert win._cancel_btn.objectName() == "outline"
+    win.hide()
