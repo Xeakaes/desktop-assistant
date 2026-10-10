@@ -12,15 +12,16 @@
     "*": "deny",
     "screenshot": "allow",
     "list_windows": "allow",
-    "ocr_screen": "deny",
+    "ocr_screen": "ask",
     "mouse": "ask",
-    "keyboard": "deny",
+    "keyboard": "ask",
     "focus_window": "ask"
   },
   "agent": {
     "max_tool_calls": 10,
     "tool_timeout_s": 30,
-    "model_timeout_s": 60
+    "model_timeout_s": 60,
+    "max_history_images": 1
   },
-  "avatar": "teto_ekmek"
+  "avatar": "base"
 }

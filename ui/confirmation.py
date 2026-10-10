@@ -44,6 +44,11 @@ def _build_dialog(parent, tool_name: str, question: str, arguments: dict | None 
     deny = buttons.addButton(
         i18n.t("confirmation.deny"), QDialogButtonBox.ButtonRole.RejectRole
     )
+    # QPushButton#outline does not match buttons hosted by QDialogButtonBox
+    # (Qt stylesheet quirk); the attribute selector does.
+    deny.setProperty("outline", True)
+    deny.style().unpolish(deny)
+    deny.style().polish(deny)
     choice = {"allow": False}
     allow.clicked.connect(lambda: choice.__setitem__("allow", True))
     buttons.accepted.connect(dlg.accept)

@@ -1,6 +1,8 @@
 import os
 import sys
 
+import pytest
+
 from core import paths
 
 
@@ -88,3 +90,41 @@ def test_ensure_user_config_noop_when_exists(monkeypatch, tmp_path):
     (cfg / "settings.json").write_text('{"keep": true}', encoding="utf-8")
     paths.ensure_user_config()
     assert (cfg / "settings.json").read_text(encoding="utf-8") == '{"keep": true}'
+
+
+def test_migrate_legacy_dirs_moves_data_and_config(monkeypatch, tmp_path):
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path / "b"), raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("APPDATA", str(tmp_path / "appdata"))
+    monkeypatch.setattr(paths.Path, "home", classmethod(lambda cls: tmp_path))
+    if os.name == "nt":
+        pytest.skip("windows legacy dir layout differs")
+    legacy_cfg = tmp_path / ".config" / "desktop-assistant"
+    legacy_data = tmp_path / ".local" / "share" / "desktop-assistant"
+    legacy_cfg.mkdir(parents=True)
+    legacy_data.mkdir(parents=True)
+    (legacy_cfg / "secrets.json").write_text('{"k": 1}', encoding="utf-8")
+    (legacy_data / "history.db").write_bytes(b"sqlite")
+    paths.migrate_legacy_dirs()
+    assert (paths.config_dir() / "secrets.json").read_text(encoding="utf-8") == '{"k": 1}'
+    assert (paths.data_dir() / "history.db").read_bytes() == b"sqlite"
+    assert not legacy_cfg.exists()
+    assert not legacy_data.exists()
+
+
+def test_migrate_legacy_dirs_does_not_overwrite(monkeypatch, tmp_path):
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path / "b"), raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("APPDATA", str(tmp_path / "appdata"))
+    monkeypatch.setattr(paths.Path, "home", classmethod(lambda cls: tmp_path))
+    if os.name == "nt":
+        pytest.skip("windows legacy dir layout differs")
+    legacy_data = tmp_path / ".local" / "share" / "desktop-assistant"
+    legacy_data.mkdir(parents=True)
+    (legacy_data / "history.db").write_bytes(b"old")
+    new_data = paths.data_dir()
+    (new_data / "history.db").write_bytes(b"new")
+    paths.migrate_legacy_dirs()
+    assert (new_data / "history.db").read_bytes() == b"new"

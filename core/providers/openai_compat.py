@@ -64,6 +64,15 @@ def serialize_messages(
     return wire
 
 
+def _looks_like_image_error(text: str) -> bool:
+    """Heuristic: did the 400 come from the image parts, not e.g. schema/context?"""
+    lowered = text.lower()
+    return any(
+        key in lowered
+        for key in ("image", "vision", "multimodal", "image_url", "base64")
+    )
+
+
 class OpenAICompatProvider(ModelProvider):
     supports_tools = True
     supports_vision = True
@@ -83,6 +92,12 @@ class OpenAICompatProvider(ModelProvider):
         self.timeout_s = timeout_s
         self._session = session or requests.Session()
         self.supports_vision = supports_vision
+        self._notice: dict | None = None
+
+    def pop_notice(self) -> dict | None:
+        """One-shot UI notice set by complete() (e.g. vision fallback)."""
+        notice, self._notice = self._notice, None
+        return notice
 
     def complete(
         self,
@@ -109,10 +124,14 @@ class OpenAICompatProvider(ModelProvider):
                 resp.status_code == 400
                 and self.supports_vision
                 and any(m.images for m in messages)
+                and _looks_like_image_error(resp.text)
             ):
-                # Text-only models reject image_url parts with a 400.
-                # Retry once without images and disable vision for the session.
+                # Text-only models reject image_url parts with a 400 mentioning
+                # images. Retry once without images and disable vision for the
+                # session. Other 400s (context length, bad tool schema) must
+                # surface unchanged.
                 self.supports_vision = False
+                self._notice = {"code": "vision_disabled", "model": self.model}
                 body["messages"] = self._serialize(messages, include_images=False)
                 resp = self._session.post(
                     f"{self.base_url}/chat/completions",

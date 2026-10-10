@@ -18,6 +18,7 @@ EVENT_NAMES = (
     "agent_error",
     "agent_finished",
     "agent_cancelled",
+    "provider_notice",
 )
 
 

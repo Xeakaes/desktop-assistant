@@ -120,6 +120,14 @@ STRINGS: dict[str, dict[str, str]] = {
     "chat.tool_finished_ok": {"tr": "{name} bitti (Tamam)", "en": "{name} done (OK)"},
     "chat.tool_finished_fail": {"tr": "{name} bitti (Hata)", "en": "{name} done (Error)"},
     "chat.activity_running": {"tr": "▸ {name} çalışıyor…", "en": "▸ {name} running…"},
+    "chat.vision_disabled": {
+        "tr": "Model görüntüleri desteklemiyor — sohbet görüntüler olmadan sürüyor.",
+        "en": "This model does not support images — continuing without them.",
+    },
+    "avatar.dragging": {
+        "tr": "Beni nereye götürüyorsun?",
+        "en": "Where are you taking me?",
+    },
     "chat.avatar_fallback": {
         "tr": "Avatar '{name}' bozuk — 'base' kullanılıyor",
         "en": "Avatar '{name}' broken — falling back to 'base'",

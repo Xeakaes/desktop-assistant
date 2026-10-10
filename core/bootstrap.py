@@ -60,6 +60,7 @@ def build_runtime(
         max_tool_calls=int(agent_cfg_raw.get("max_tool_calls", 10)),
         tool_timeout_s=float(agent_cfg_raw.get("tool_timeout_s", 30)),
         model_timeout_s=float(agent_cfg_raw.get("model_timeout_s", 60)),
+        max_history_images=int(agent_cfg_raw.get("max_history_images", 1)),
     )
     events = EventBus()
     session = SessionStore()

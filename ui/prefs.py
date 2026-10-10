@@ -17,6 +17,35 @@ class UiPrefs:
     lang: str
 
 
+def _read_raw(path: Path) -> dict:
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _write_raw(path: Path, data: dict) -> None:
+    import os
+    import tempfile
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = json.dumps(data, indent=2).encode("utf-8")
+    fd, tmp = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(payload)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
 def load_prefs(path: Path) -> UiPrefs:
     defaults = UiPrefs(mode=None, theme="dark", lang="tr")
     if not path.exists():
@@ -40,23 +69,27 @@ def load_prefs(path: Path) -> UiPrefs:
 
 
 def save_prefs(path: Path, prefs: UiPrefs) -> None:
-    import os
-    import tempfile
+    data = _read_raw(path)
+    data.update({"mode": prefs.mode, "theme": prefs.theme, "lang": prefs.lang})
+    _write_raw(path, data)
 
-    path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {"mode": prefs.mode, "theme": prefs.theme, "lang": prefs.lang}
-    data = json.dumps(payload, indent=2).encode("utf-8")
-    fd, tmp = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
-    try:
-        with os.fdopen(fd, "wb") as f:
-            f.write(data)
-        os.replace(tmp, path)
-    except BaseException:
-        try:
-            os.unlink(tmp)
-        except OSError:
-            pass
-        raise
+
+def load_avatar_pos(path: Path) -> tuple[int, int] | None:
+    """Last saved avatar window position, if any."""
+    pos = _read_raw(path).get("avatar_pos")
+    if (
+        isinstance(pos, list)
+        and len(pos) == 2
+        and all(isinstance(v, int) for v in pos)
+    ):
+        return pos[0], pos[1]
+    return None
+
+
+def save_avatar_pos(path: Path, x: int, y: int) -> None:
+    data = _read_raw(path)
+    data["avatar_pos"] = [int(x), int(y)]
+    _write_raw(path, data)
 
 
 def switch_mode(path: Path, mode: str) -> None:

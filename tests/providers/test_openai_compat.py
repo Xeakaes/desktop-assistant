@@ -7,9 +7,10 @@ from core.providers.openai_compat import OpenAICompatProvider
 
 
 class FakeResponse:
-    def __init__(self, payload, status_code=200):
+    def __init__(self, payload, status_code=200, text=""):
         self._payload = payload
         self.status_code = status_code
+        self.text = text if text else json.dumps(payload)
 
     def json(self):
         return self._payload
@@ -107,7 +108,11 @@ class ScriptedSession:
 def test_openai_400_with_images_retries_without_images():
     img_msgs = [ChatMessage(role="user", content="look", images=["data:image/png;base64,AAA"])]
     session = ScriptedSession([
-        FakeResponse({"error": "model does not support image input"}, status_code=400),
+        FakeResponse(
+            {"error": "model does not support image input"},
+            status_code=400,
+            text="model does not support image input",
+        ),
         FakeResponse(_payload(content="ok, text only")),
     ])
     p = OpenAICompatProvider("http://api", "key", "text-model", session=session)
@@ -124,6 +129,35 @@ def test_openai_400_with_images_retries_without_images():
     )
     # Vision is disabled for the rest of the session.
     assert p.supports_vision is False
+
+
+def test_openai_vision_fallback_sets_one_shot_notice():
+    img_msgs = [ChatMessage(role="user", content="look", images=["data:image/png;base64,AAA"])]
+    session = ScriptedSession([
+        FakeResponse({}, status_code=400, text="image_url parts are not supported"),
+        FakeResponse(_payload(content="ok")),
+    ])
+    p = OpenAICompatProvider("http://api", "key", "m", session=session)
+    p.complete(img_msgs, [], CancellationToken())
+    assert p.pop_notice() == {"code": "vision_disabled", "model": "m"}
+    assert p.pop_notice() is None
+
+
+def test_openai_400_with_images_but_non_image_error_does_not_retry():
+    img_msgs = [ChatMessage(role="user", content="look", images=["data:image/png;base64,AAA"])]
+    session = ScriptedSession([
+        FakeResponse(
+            {"error": "context length exceeded"},
+            status_code=400,
+            text="This model's maximum context length is 8192 tokens",
+        ),
+    ])
+    p = OpenAICompatProvider("http://api", "key", "m", session=session)
+    with pytest.raises(ProviderError):
+        p.complete(img_msgs, [], CancellationToken())
+    assert len(session.posts) == 1
+    assert p.supports_vision is True
+    assert p.pop_notice() is None
 
 
 def test_openai_400_without_images_still_raises():

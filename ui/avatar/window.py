@@ -5,8 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable
 
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QContextMenuEvent, QPixmap
+from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtGui import QContextMenuEvent, QMouseEvent, QPixmap
 from PySide6.QtWidgets import QLabel, QMenu, QVBoxLayout, QWidget
 
 from ui.avatar.manifest import StateAnim, load_manifest
@@ -29,6 +29,14 @@ def load_spinner_frames(avatar_dir: Path) -> list[str]:
 
 
 class AvatarWindow(QWidget):
+    """Frameless avatar; left-drag moves it around the desktop.
+
+    dragging_changed emits True on drag start and False on drop so the host
+    app can show a status line and persist the new position.
+    """
+
+    dragging_changed = Signal(bool)
+
     def __init__(
         self,
         avatar_dir: Path,
@@ -43,6 +51,7 @@ class AvatarWindow(QWidget):
         self._state: AvatarState = "idle"
         self._frame_index = 0
         self._spinner_index = 0
+        self._drag_offset = None
 
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
@@ -78,6 +87,37 @@ class AvatarWindow(QWidget):
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
         if self._context_menu_factory is not None:
             self._context_menu_factory().exec(event.globalPos())
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_offset = (
+                event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            )
+            self.dragging_changed.emit(True)
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        if (
+            self._drag_offset is not None
+            and event.buttons() & Qt.MouseButton.LeftButton
+        ):
+            self.move(event.globalPosition().toPoint() - self._drag_offset)
+            event.accept()
+            return
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        if (
+            event.button() == Qt.MouseButton.LeftButton
+            and self._drag_offset is not None
+        ):
+            self._drag_offset = None
+            self.dragging_changed.emit(False)
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
 
     def set_state(self, state: AvatarState) -> None:
         if state == self._state and state != "error":

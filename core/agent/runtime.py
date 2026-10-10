@@ -191,6 +191,11 @@ class AgentRuntime:
                         {"error_code": exc.error_code, "message": exc.message},
                     )
                     return
+                pop_notice = getattr(self._provider, "pop_notice", None)
+                if pop_notice is not None:
+                    notice = pop_notice()
+                    if notice:
+                        self._events.publish("provider_notice", sid, tid, notice)
                 # abandoned in-flight responses are never delivered
                 task.token.raise_if_cancelled()
                 if not response.tool_calls:

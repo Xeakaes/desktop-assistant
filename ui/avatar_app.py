@@ -29,7 +29,7 @@ from ui.fonts import load_fonts
 from ui.history import HistoryStore, default_db_path
 from ui.i18n import i18n
 from ui.paths import SECRETS_PATH, SETTINGS_PATH, ui_json_path
-from ui.prefs import load_prefs, restart_into
+from ui.prefs import load_avatar_pos, load_prefs, restart_into, save_avatar_pos
 from ui.settings import SettingsWindow
 from ui.theme import apply_theme
 
@@ -67,12 +67,34 @@ class App:
             maybe_spawn_server(self._settings_cache)
         except Exception as exc:
             print(f"screen-control spawn skipped: {exc}", file=sys.stderr)
+        self._prefs_path = ui_json_path()
+        self.avatar.dragging_changed.connect(self._on_avatar_dragging)
         screen = QApplication.primaryScreen().geometry()
-        self.avatar.move(screen.width() - 220, screen.height() - 260)
+        x, y = self._initial_avatar_pos(screen)
+        self.avatar.move(x, y)
         self.avatar.show()
         self.bubble.move(max(0, self.avatar.x() - 340), max(0, self.avatar.y() - 80))
         if getattr(self, "_pending_avatar_note", ""):
             self.bubble.append_message("tool", self._pending_avatar_note)
+
+    def _initial_avatar_pos(self, screen) -> tuple[int, int]:
+        """Saved position if still on-screen, else the bottom-right default."""
+        saved = load_avatar_pos(self._prefs_path)
+        w = self.avatar.width() or 220
+        h = self.avatar.height() or 260
+        if saved is not None:
+            x, y = saved
+            if 0 <= x <= screen.width() - w and 0 <= y <= screen.height() - h:
+                return x, y
+        return screen.width() - 220, screen.height() - 260
+
+    def _on_avatar_dragging(self, dragging: bool) -> None:
+        if dragging:
+            self.bubble.setVisible(True)
+            self.bubble.set_tool_activity(i18n.t("avatar.dragging"))
+        else:
+            self.bubble.set_tool_activity("")
+            save_avatar_pos(self._prefs_path, self.avatar.x(), self.avatar.y())
 
     def _make_avatar(self, name: str) -> AvatarWindow:
         from core.paths import user_avatars_dir

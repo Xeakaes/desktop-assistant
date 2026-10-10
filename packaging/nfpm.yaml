@@ -7,6 +7,8 @@ priority: optional
 maintainer: Xeakaes <194935315+Xeakaes@users.noreply.github.com>
 description: Desktop AI Assistant with chat GUI, avatar mode, and bundled screen-control.
 license: MIT
+replaces:
+  - desktop-assistant
 contents:
   - src: ./dist/NexaDesk
     dst: /opt/NexaDesk

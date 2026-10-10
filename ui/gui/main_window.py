@@ -451,6 +451,11 @@ class ChatWindow(QMainWindow):
             msg = payload.get("message") or code
             if event.session_id == self._session_id:
                 self._signals.error.emit(f"({code}): {msg}")
+        elif name == "provider_notice":
+            if payload.get("code") == "vision_disabled":
+                self._signals.tool.emit(
+                    "tool", i18n.t("chat.vision_disabled"), True
+                )
         elif name == "agent_cancelled":
             if event.session_id == self._session_id:
                 self._signals.cancelled.emit()

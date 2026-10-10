@@ -51,10 +51,62 @@ def user_avatars_dir() -> Path:
     return d
 
 
+def _legacy_config_dir() -> Path:
+    if os.name == "nt":
+        return Path(os.environ.get("APPDATA", str(Path.home()))) / "desktop-assistant"
+    return Path.home() / ".config" / "desktop-assistant"
+
+
+def _legacy_data_dir() -> Path:
+    if os.name == "nt":
+        return Path(os.environ.get("APPDATA", str(Path.home()))) / "desktop-assistant"
+    return Path.home() / ".local" / "share" / "desktop-assistant"
+
+
+def _move_missing(src: Path, dst: Path) -> None:
+    """Move entries from src into dst without overwriting anything in dst."""
+    import shutil
+
+    if not src.is_dir():
+        return
+    dst.mkdir(parents=True, exist_ok=True)
+    for item in src.iterdir():
+        target = dst / item.name
+        if target.exists():
+            continue
+        try:
+            item.rename(target)
+        except OSError:
+            shutil.move(str(item), str(target))
+
+
+def migrate_legacy_dirs() -> None:
+    """One-time migration from the pre-rename desktop-assistant directories.
+
+    Old installs kept config in ~/.config/desktop-assistant and data
+    (history.db, …) in ~/.local/share/desktop-assistant (Windows: one
+    %APPDATA%\\desktop-assistant folder). Move anything the new NexaDesk
+    directories do not have yet, then remove the emptied legacy dirs.
+    """
+    pairs = (
+        (_legacy_config_dir(), config_dir()),
+        (_legacy_data_dir(), data_dir()),
+    )
+    for old, new in pairs:
+        if not old.is_dir() or old.resolve() == new.resolve():
+            continue
+        _move_missing(old, new)
+        try:
+            old.rmdir()  # only succeeds when fully migrated
+        except OSError:
+            pass
+
+
 def ensure_user_config() -> None:
     """Seed config_dir() with defaults on first frozen launch."""
     import json
 
+    migrate_legacy_dirs()
     cfg = config_dir()
     cfg.mkdir(parents=True, exist_ok=True)
     settings = cfg / "settings.json"
