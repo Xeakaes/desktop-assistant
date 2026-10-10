@@ -5,9 +5,10 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+import threading
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QComboBox,
@@ -49,28 +50,49 @@ PROVIDER_KEY_SECRETS = {
 }
 
 
-class _PackBuildWorker(QThread):
-    """Runs build_pack off the UI thread so the window never freezes."""
+class _PackSignals(QObject):
+    """Signal carrier living on the UI thread; safe to emit from any thread."""
 
     succeeded = Signal(str)  # pack name
     failed = Signal(str, str)  # name, error kind ("exists" | "bad_image" | "error")
 
+
+class _PackBuildWorker:
+    """Runs build_pack on a plain thread and reports via Qt signals.
+
+    A plain ``threading.Thread`` (not ``QThread``) is used deliberately: the
+    PySide6 ``QThread`` teardown + queued-signal delivery race segfaults on
+    some CI runners. The signals live on a separate ``QObject`` whose thread
+    affinity is the UI thread, so emitting from the worker thread is queued
+    safely and no Qt object is destroyed mid-delivery.
+    """
+
     def __init__(self, src: Path, out: Path, name: str, parent=None) -> None:
-        super().__init__(parent)
+        del parent  # kept for API compat; a plain thread has no Qt parent
+        self.signals = _PackSignals()
         self._src = src
         self._out = out
         self._name = name
+        self._thread = threading.Thread(target=self._run, daemon=True)
 
-    def run(self) -> None:
+    def start(self) -> None:
+        self._thread.start()
+
+    def wait(self, ms: int = 5000) -> bool:
+        """Join the worker thread; True if it finished within the timeout."""
+        self._thread.join(timeout=ms / 1000.0)
+        return not self._thread.is_alive()
+
+    def _run(self) -> None:
         try:
             build_pack(self._src, self._out, self._name)
         except PackError as exc:
             kind = "exists" if "exists" in str(exc) else "bad_image"
-            self.failed.emit(self._name, kind)
+            self.signals.failed.emit(self._name, kind)
         except Exception:
-            self.failed.emit(self._name, "error")
+            self.signals.failed.emit(self._name, "error")
         else:
-            self.succeeded.emit(self._name)
+            self.signals.succeeded.emit(self._name)
 
 
 def merge_permissions(existing: dict, default: str, per_tool: dict) -> dict:
@@ -386,9 +408,8 @@ class SettingsWindow(QWidget):
         self.setCursor(Qt.CursorShape.WaitCursor)
         worker = _PackBuildWorker(Path(src), out, name, parent=self)
         self._pack_worker = worker
-        worker.succeeded.connect(self._on_pack_built)
-        worker.failed.connect(self._on_pack_failed)
-        worker.finished.connect(worker.deleteLater)
+        worker.signals.succeeded.connect(self._on_pack_built)
+        worker.signals.failed.connect(self._on_pack_failed)
         worker.start()
 
     def _on_pack_built(self, name: str) -> None:

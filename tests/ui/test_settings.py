@@ -137,7 +137,7 @@ def test_delete_pack_refuses_base(tmp_path, monkeypatch):
 
 
 def test_build_pack_runs_on_background_thread(tmp_path, monkeypatch):
-    """_build_pack must not block: it starts a QThread and disables the button."""
+    """_build_pack must not block: it starts a background thread and disables the button."""
     import threading
 
     from PySide6.QtWidgets import QApplication
@@ -182,8 +182,9 @@ def test_build_pack_runs_on_background_thread(tmp_path, monkeypatch):
     assert not win._pack_build.isEnabled()
     assert started.wait(timeout=2), "build_pack never started on the thread"
     release.set()
-    # Join the worker thread before pumping events: delivering queued
-    # signals while the QThread is mid-teardown segfaults on some runners.
+    # Join the worker thread before pumping events. The worker is a plain
+    # threading.Thread (no QThread teardown race), so delivering the queued
+    # completion signal afterwards is safe.
     assert win._pack_worker.wait(5000), "worker thread did not finish"
     # Let the queued completion slot run.
     for _ in range(50):
